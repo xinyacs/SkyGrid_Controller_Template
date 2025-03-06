@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体强化学习的无人机协同系统 - 实时监控</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .monitor-card {
+            @apply bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/10 hover:bg-white/15 transition-all duration-300;
+        }
+        .grid-map {
+            display: grid;
+            grid-template-columns: repeat(20, 1fr);
+            gap: 2px;
+            aspect-ratio: 1;
+        }
+        .grid-cell {
+            @apply bg-slate-800/50 aspect-square rounded-sm border border-slate-700/50;
+        }
+        .grid-cell.drone {
+            @apply bg-blue-500/50 border-blue-400 relative;
+        }
+        .grid-cell.target {
+            @apply bg-yellow-500/50 border-yellow-400;
+        }
+        .grid-cell.obstacle {
+            @apply bg-red-500/50 border-red-400;
+        }
+        .drone-trail {
+            @apply absolute w-full h-full border-2 border-blue-400/50 rounded-sm;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        .status-indicator {
+            @apply w-3 h-3 rounded-full;
+        }
+        .metric-value {
+            @apply text-2xl font-bold text-white;
+        }
+        .metric-label {
+            @apply text-sm text-gray-400;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <!-- 警告弹窗 -->
+    <div id="alertModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold text-white mb-4" id="alertTitle">警告</h3>
+            <p class="text-gray-300 mb-6" id="alertMessage">警告信息</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeAlert()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                    取消
+                </button>
+                <button id="alertAction" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导航栏 -->
+    <nav class="bg-slate-800/50 backdrop-blur-md border-b border-white/10">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold text-white">无人机协同系统</h1>
+                    <div class="flex space-x-4">
+                        <a href="./dashboard.html" class="text-blue-300 hover:text-white transition-colors">
+                            返回仪表盘
+                        </a>
+                        <button id="nav-mission" class="text-blue-300 hover:text-white transition-colors">
+                            任务规划
+                        </button>
+                        <button id="nav-emergency" class="text-blue-300 hover:text-white transition-colors">
+                            应急处理
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="emergencyIndicator" class="hidden">
+                        <div class="flex items-center bg-red-500/20 px-4 py-2 rounded-lg">
+                            <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-2"></div>
+                            <span class="text-red-400">发现异常</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- 顶部标题和状态栏 -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-white">实时监控</h1>
+                <p class="text-blue-200">位置追踪 · 协同行为 · 状态监控</p>
+            </div>
+            <div class="flex items-center space-x-6">
+                <div class="flex items-center space-x-2">
+                    <div class="status-indicator bg-green-500"></div>
+                    <span class="text-green-400">系统正常</span>
+                </div>
+                <div class="text-white">
+                    <span class="opacity-75">更新频率：</span>
+                    <span>200ms</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：实时地图和无人机位置 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 实时地图 -->
+                <div class="monitor-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">实时位置追踪</h2>
+                        <div class="flex space-x-4">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-blue-500/50 rounded-sm mr-2"></div>
+                                <span class="text-blue-300 text-sm">无人机</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-yellow-500/50 rounded-sm mr-2"></div>
+                                <span class="text-yellow-300 text-sm">目标</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-red-500/50 rounded-sm mr-2"></div>
+                                <span class="text-red-300 text-sm">障碍物</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800/30 p-6 rounded-xl">
+                        <div class="grid-map">
+                            <!-- 20x20网格，示例部分单元格 -->
+                            <div class="grid-cell drone"><div class="drone-trail"></div></div>
+                            <div class="grid-cell"></div>
+                            <div class="grid-cell obstacle"></div>
+                            <!-- 重复类似的单元格以填充20x20网格 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 协同行为分析 -->
+                <div class="monitor-card">
+                    <h2 class="text-xl font-bold text-white mb-6">协同行为分析</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div>
+                            <div class="metric-value">85%</div>
+                            <div class="metric-label">协同效率</div>
+                        </div>
+                        <div>
+                            <div class="metric-value">12m</div>
+                            <div class="metric-label">平均间距</div>
+                        </div>
+                        <div>
+                            <div class="metric-value">4/5</div>
+                            <div class="metric-label">编队完整性</div>
+                        </div>
+                        <div>
+                            <div class="metric-value">98%</div>
+                            <div class="metric-label">任务协同度</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：状态监控和警报 -->
+            <div class="space-y-6">
+                <!-- 无人机状态列表 -->
+                <div class="monitor-card">
+                    <h2 class="text-xl font-bold text-white mb-6">无人机状态</h2>
+                    <div class="space-y-4">
+                        <!-- 无人机1 -->
+                        <div class="bg-slate-800/50 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-3">
+                                <div class="flex items-center">
+                                    <div class="status-indicator bg-green-500 mr-2"></div>
+                                    <span class="text-white">无人机 #001</span>
+                                </div>
+                                <span class="text-green-400">正常运行</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <span class="text-gray-400">电量</span>
+                                    <div class="flex items-center">
+                                        <div class="w-full bg-blue-900/30 rounded-full h-2 mr-2">
+                                            <div class="bg-blue-500 h-2 rounded-full" style="width: 85%"></div>
+                                        </div>
+                                        <span class="text-white">85%</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="text-gray-400">速度</span>
+                                    <div class="text-white">12 m/s</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 无人机2 -->
+                        <div class="bg-slate-800/50 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-3">
+                                <div class="flex items-center">
+                                    <div class="status-indicator bg-yellow-500 mr-2"></div>
+                                    <span class="text-white">无人机 #002</span>
+                                </div>
+                                <span class="text-yellow-400">电量偏低</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <span class="text-gray-400">电量</span>
+                                    <div class="flex items-center">
+                                        <div class="w-full bg-blue-900/30 rounded-full h-2 mr-2">
+                                            <div class="bg-yellow-500 h-2 rounded-full" style="width: 25%"></div>
+                                        </div>
+                                        <span class="text-white">25%</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="text-gray-400">速度</span>
+                                    <div class="text-white">8 m/s</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 环境状态 -->
+                <div class="monitor-card">
+                    <h2 class="text-xl font-bold text-white mb-6">环境状态</h2>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400">风速</span>
+                            <span class="text-white">3.5 m/s</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400">能见度</span>
+                            <span class="text-white">良好</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400">温度</span>
+                            <span class="text-white">24°C</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400">气压</span>
+                            <span class="text-white">1013 hPa</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 警报面板 -->
+                <div class="monitor-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">异常警报</h2>
+                        <div class="flex items-center space-x-2">
+                            <div class="status-indicator bg-red-500 animate-pulse"></div>
+                            <span class="text-red-400">2个活跃警报</span>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-red-400">无人机 #002 电量低</span>
+                                <span class="text-sm text-red-300">5分钟前</span>
+                            </div>
+                            <p class="text-sm text-gray-400">电池电量低于30%，建议及时返航充电</p>
+                        </div>
+                        <div class="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-yellow-400">通信延迟异常</span>
+                                <span class="text-sm text-yellow-300">2分钟前</span>
+                            </div>
+                            <p class="text-sm text-gray-400">通信延迟超过200ms，可能影响协同性能</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部性能指标 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
+            <div class="monitor-card">
+                <div class="text-3xl font-bold text-white">98.5%</div>
+                <div class="text-sm text-gray-400">系统稳定性</div>
+                <div class="w-full bg-blue-900/30 rounded-full h-2 mt-2">
+                    <div class="bg-blue-500 h-2 rounded-full" style="width: 98.5%"></div>
+                </div>
+            </div>
+            <div class="monitor-card">
+                <div class="text-3xl font-bold text-white">45ms</div>
+                <div class="text-sm text-gray-400">平均响应时间</div>
+                <div class="w-full bg-blue-900/30 rounded-full h-2 mt-2">
+                    <div class="bg-green-500 h-2 rounded-full" style="width: 92%"></div>
+                </div>
+            </div>
+            <div class="monitor-card">
+                <div class="text-3xl font-bold text-white">85.2%</div>
+                <div class="text-sm text-gray-400">任务完成率</div>
+                <div class="w-full bg-blue-900/30 rounded-full h-2 mt-2">
+                    <div class="bg-blue-500 h-2 rounded-full" style="width: 85.2%"></div>
+                </div>
+            </div>
+            <div class="monitor-card">
+                <div class="text-3xl font-bold text-white">4/5</div>
+                <div class="text-sm text-gray-400">在线设备</div>
+                <div class="w-full bg-blue-900/30 rounded-full h-2 mt-2">
+                    <div class="bg-blue-500 h-2 rounded-full" style="width: 80%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let selectedDroneId = null;
+        let monitoringData = {
+            drones: [],
+            alerts: [],
+            environmentStatus: {}
+        };
+        const ALERT_THRESHOLDS = {
+            battery: 30,
+            signal: 50,
+            temperature: 35,
+            wind: 10
+        };
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            startRealTimeMonitoring();
+            checkForEmergencies();
+        });
+
+        // 初始化事件监听
+        function initializeEventListeners() {
+            // 导航事件
+            document.getElementById('nav-emergency').addEventListener('click', () => {
+                if (monitoringData.alerts.length > 0) {
+                    navigateToEmergency();
+                } else {
+                    showAlert('无异常情况', '当前无需进行应急处理。');
+                }
+            });
+
+            document.getElementById('nav-mission').addEventListener('click', () => {
+                if (!selectedDroneId) {
+                    showAlert('请选择无人机', '请先选择要调整任务的无人机。');
+                    return;
+                }
+                navigateToMissionPlanning();
+            });
+
+            // 无人机选择事件
+            document.querySelectorAll('.drone-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    selectDrone(card.dataset.droneId);
+                });
+            });
+        }
+
+        // 显示警告弹窗
+        function showAlert(title, message, actionCallback = null) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').style.display = 'flex';
+            
+            const actionButton = document.getElementById('alertAction');
+            if (actionCallback) {
+                actionButton.style.display = 'block';
+                actionButton.onclick = actionCallback;
+            } else {
+                actionButton.style.display = 'none';
+            }
+        }
+
+        // 关闭警告弹窗
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        // 导航函数
+        function navigateTo(path, params = {}) {
+            const queryString = Object.keys(params)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+            window.location.href = queryString ? `${path}?${queryString}` : path;
+        }
+
+        // 导航到应急处理页面
+        function navigateToEmergency() {
+            const criticalAlerts = monitoringData.alerts.filter(alert => alert.level === 'critical');
+            if (criticalAlerts.length > 0) {
+                showAlert(
+                    '发现严重异常',
+                    `检测到 ${criticalAlerts.length} 个严重异常，是否立即进行处理？`,
+                    () => navigateTo('./emergency.html', { 
+                        alerts: criticalAlerts.map(a => a.id).join(','),
+                        source: 'monitoring'
+                    })
+                );
+            } else {
+                navigateTo('./emergency.html', { source: 'monitoring' });
+            }
+        }
+
+        // 导航到任务规划页面
+        function navigateToMissionPlanning() {
+            const drone = monitoringData.drones.find(d => d.id === selectedDroneId);
+            if (drone.status === 'warning' || drone.status === 'critical') {
+                showAlert(
+                    '无人机状态异常',
+                    '当前无人机状态异常，建议先进行应急处理。是否继续进行任务调整？',
+                    () => navigateTo('./mission-planning.html', { 
+                        droneId: selectedDroneId,
+                        source: 'monitoring'
+                    })
+                );
+            } else {
+                navigateTo('./mission-planning.html', { 
+                    droneId: selectedDroneId,
+                    source: 'monitoring'
+                });
+            }
+        }
+
+        // 选择无人机
+        function selectDrone(droneId) {
+            selectedDroneId = droneId;
+            // 更新UI显示选中状态
+            document.querySelectorAll('.drone-card').forEach(card => {
+                card.classList.remove('ring-2', 'ring-blue-500');
+                if (card.dataset.droneId === droneId) {
+                    card.classList.add('ring-2', 'ring-blue-500');
+                }
+            });
+        }
+
+        // 开始实时监控
+        function startRealTimeMonitoring() {
+            // 模拟实时数据更新
+            setInterval(() => {
+                updateDroneStatus();
+                updateEnvironmentStatus();
+                updateAlerts();
+                updateUI();
+            }, 1000);
+        }
+
+        // 检查紧急情况
+        function checkForEmergencies() {
+            setInterval(() => {
+                const hasEmergency = monitoringData.alerts.some(alert => alert.level === 'critical');
+                if (hasEmergency) {
+                    document.getElementById('emergencyIndicator').classList.remove('hidden');
+                    showAlert(
+                        '紧急情况警告',
+                        '检测到紧急情况，是否立即进行处理？',
+                        navigateToEmergency
+                    );
+                } else {
+                    document.getElementById('emergencyIndicator').classList.add('hidden');
+                }
+            }, 5000);
+        }
+
+        // 更新无人机状态
+        function updateDroneStatus() {
+            monitoringData.drones = Array.from({ length: 5 }, (_, i) => ({
+                id: String(i + 1).padStart(3, '0'),
+                battery: Math.floor(Math.random() * 100),
+                signal: Math.floor(Math.random() * 100),
+                speed: Math.floor(Math.random() * 20),
+                status: Math.random() > 0.8 ? 'warning' : 'normal'
+            }));
+        }
+
+        // 更新环境状态
+        function updateEnvironmentStatus() {
+            monitoringData.environmentStatus = {
+                windSpeed: (Math.random() * 10).toFixed(1),
+                visibility: Math.random() > 0.9 ? '较差' : '良好',
+                temperature: Math.floor(20 + Math.random() * 20),
+                pressure: Math.floor(1000 + Math.random() * 30)
+            };
+        }
+
+        // 更新警报
+        function updateAlerts() {
+            monitoringData.alerts = monitoringData.drones
+                .filter(drone => drone.battery < ALERT_THRESHOLDS.battery)
+                .map(drone => ({
+                    id: `alert_${drone.id}`,
+                    type: 'battery',
+                    droneId: drone.id,
+                    message: `无人机 #${drone.id} 电量低于 ${ALERT_THRESHOLDS.battery}%`,
+                    level: drone.battery < 20 ? 'critical' : 'warning',
+                    timestamp: new Date()
+                }));
+        }
+
+        // 更新UI
+        function updateUI() {
+            // 更新无人机状态卡片
+            monitoringData.drones.forEach(drone => {
+                const card = document.querySelector(`[data-drone-id="${drone.id}"]`);
+                if (card) {
+                    // 更新电量、信号等显示
+                    card.querySelector('.battery-value').style.width = `${drone.battery}%`;
+                    card.querySelector('.battery-text').textContent = `${drone.battery}%`;
+                    // ... 更新其他状态显示
+                }
+            });
+
+            // 更新环境状态
+            const env = monitoringData.environmentStatus;
+            document.querySelector('#windSpeed').textContent = `${env.windSpeed} m/s`;
+            document.querySelector('#visibility').textContent = env.visibility;
+            document.querySelector('#temperature').textContent = `${env.temperature}°C`;
+            document.querySelector('#pressure').textContent = `${env.pressure} hPa`;
+
+            // 更新警报面板
+            const alertsContainer = document.querySelector('#alertsContainer');
+            alertsContainer.innerHTML = monitoringData.alerts
+                .map(alert => `
+                    <div class="bg-${alert.level === 'critical' ? 'red' : 'yellow'}-900/20 border border-${alert.level === 'critical' ? 'red' : 'yellow'}-500/30 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-${alert.level === 'critical' ? 'red' : 'yellow'}-400">${alert.message}</span>
+                            <span class="text-sm text-${alert.level === 'critical' ? 'red' : 'yellow'}-300">${formatTime(alert.timestamp)}</span>
+                        </div>
+                    </div>
+                `).join('');
+        }
+
+        // 格式化时间
+        function formatTime(date) {
+            const minutes = Math.floor((new Date() - date) / 60000);
+            return `${minutes}分钟前`;
+        }
+    </script>
+</body>
+</html> 

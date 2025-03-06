@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体强化学习的无人机协同系统 - 系统配置</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .config-card {
+            @apply bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/10 hover:bg-white/15 transition-all duration-300;
+        }
+        .param-input {
+            @apply bg-slate-800/50 border border-blue-500/30 rounded-lg px-4 py-2 text-white w-full focus:outline-none focus:border-blue-500;
+        }
+        .param-group {
+            @apply bg-slate-800/50 rounded-lg p-4;
+        }
+        .user-role {
+            @apply flex items-center space-x-4 p-3 rounded-lg bg-slate-800/50;
+        }
+        .permission-tag {
+            @apply px-2 py-1 rounded-md text-xs font-medium;
+        }
+        .permission-tag.read {
+            @apply bg-blue-500/20 text-blue-400 border border-blue-500/30;
+        }
+        .permission-tag.write {
+            @apply bg-green-500/20 text-green-400 border border-green-500/30;
+        }
+        .permission-tag.admin {
+            @apply bg-purple-500/20 text-purple-400 border border-purple-500/30;
+        }
+        .storage-meter {
+            @apply h-2 rounded-full bg-slate-700 overflow-hidden;
+        }
+        .storage-value {
+            @apply h-full rounded-full transition-all duration-500;
+        }
+        .backup-item {
+            @apply flex items-center space-x-4 p-3 rounded-lg bg-slate-800/50;
+        }
+        .network-status {
+            @apply flex items-center space-x-2 px-3 py-1 rounded-full text-sm;
+        }
+        .network-status.active {
+            @apply bg-green-500/20 text-green-400 border border-green-500/30;
+        }
+        .network-status.inactive {
+            @apply bg-red-500/20 text-red-400 border border-red-500/30;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <!-- 警告弹窗 -->
+    <div id="alertModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold text-white mb-4" id="alertTitle">警告</h3>
+            <p class="text-gray-300 mb-6" id="alertMessage">警告信息</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeAlert()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                    取消
+                </button>
+                <button id="alertAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导航栏 -->
+    <nav class="bg-slate-800/50 backdrop-blur-md border-b border-white/10">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold text-white">无人机协同系统</h1>
+                    <div class="flex space-x-4">
+                        <button id="nav-dashboard" class="text-blue-300 hover:text-white transition-colors">
+                            返回仪表盘
+                        </button>
+                        <button id="nav-permissions" class="text-blue-300 hover:text-white transition-colors">
+                            用户权限管理
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="configStatus" class="text-yellow-400">
+                        <span class="mr-2">●</span>配置未保存
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- 顶部标题 -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-white">系统配置</h1>
+            <p class="text-blue-200">参数设置 · 权限管理 · 系统维护</p>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：系统参数设置和用户权限管理 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 系统参数设置 -->
+                <div class="config-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">系统参数设置</h2>
+                        <button class="px-4 py-2 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                            保存更改
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="param-group">
+                            <h3 class="text-lg font-semibold text-white mb-4">训练参数</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">最大训练轮次</label>
+                                    <input type="number" value="10000" class="param-input">
+                                </div>
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">批次大小</label>
+                                    <input type="number" value="64" class="param-input">
+                                </div>
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">学习率</label>
+                                    <input type="number" value="0.001" step="0.001" class="param-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="param-group">
+                            <h3 class="text-lg font-semibold text-white mb-4">系统限制</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">最大并发任务数</label>
+                                    <input type="number" value="5" class="param-input">
+                                </div>
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">日志保留天数</label>
+                                    <input type="number" value="30" class="param-input">
+                                </div>
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">会话超时时间(分钟)</label>
+                                    <input type="number" value="60" class="param-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 用户权限管理 -->
+                <div class="config-card">
+                    <h2 class="text-xl font-bold text-white mb-6">用户权限管理</h2>
+                    <div class="space-y-4">
+                        <div class="user-role">
+                            <div class="w-3 h-3 bg-purple-500 rounded-full"></div>
+                            <div class="flex-1">
+                                <div class="text-white">系统管理员</div>
+                                <div class="flex space-x-2 mt-1">
+                                    <span class="permission-tag admin">完全控制</span>
+                                    <span class="permission-tag write">写入</span>
+                                    <span class="permission-tag read">读取</span>
+                                </div>
+                            </div>
+                            <button class="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                                编辑
+                            </button>
+                        </div>
+                        <div class="user-role">
+                            <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <div class="flex-1">
+                                <div class="text-white">研究员</div>
+                                <div class="flex space-x-2 mt-1">
+                                    <span class="permission-tag write">写入</span>
+                                    <span class="permission-tag read">读取</span>
+                                </div>
+                            </div>
+                            <button class="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                                编辑
+                            </button>
+                        </div>
+                        <div class="user-role">
+                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <div class="flex-1">
+                                <div class="text-white">操作员</div>
+                                <div class="flex space-x-2 mt-1">
+                                    <span class="permission-tag read">读取</span>
+                                </div>
+                            </div>
+                            <button class="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                                编辑
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：网络配置、存储管理和备份还原 -->
+            <div class="space-y-6">
+                <!-- 网络配置 -->
+                <div class="config-card">
+                    <h2 class="text-xl font-bold text-white mb-6">网络配置</h2>
+                    <div class="space-y-4">
+                        <div class="param-group">
+                            <div class="flex justify-between items-center mb-4">
+                                <span class="text-white">主网络接口</span>
+                                <span class="network-status active">已连接</span>
+                            </div>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">IP地址</label>
+                                    <input type="text" value="192.168.1.100" class="param-input">
+                                </div>
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">子网掩码</label>
+                                    <input type="text" value="255.255.255.0" class="param-input">
+                                </div>
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">网关</label>
+                                    <input type="text" value="192.168.1.1" class="param-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="param-group">
+                            <div class="flex justify-between items-center mb-4">
+                                <span class="text-white">备用网络</span>
+                                <span class="network-status inactive">未连接</span>
+                            </div>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">IP地址</label>
+                                    <input type="text" value="10.0.0.100" class="param-input">
+                                </div>
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">子网掩码</label>
+                                    <input type="text" value="255.255.255.0" class="param-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 存储管理 -->
+                <div class="config-card">
+                    <h2 class="text-xl font-bold text-white mb-6">存储管理</h2>
+                    <div class="space-y-4">
+                        <div class="param-group">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-white">主存储</span>
+                                <span class="text-sm text-gray-400">1TB</span>
+                            </div>
+                            <div class="storage-meter mb-2">
+                                <div class="storage-value bg-blue-500" style="width: 75%"></div>
+                            </div>
+                            <div class="text-sm text-gray-400">已使用: 750GB (75%)</div>
+                        </div>
+                        <div class="param-group">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-white">备份存储</span>
+                                <span class="text-sm text-gray-400">2TB</span>
+                            </div>
+                            <div class="storage-meter mb-2">
+                                <div class="storage-value bg-green-500" style="width: 45%"></div>
+                            </div>
+                            <div class="text-sm text-gray-400">已使用: 900GB (45%)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 备份还原 -->
+                <div class="config-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">备份还原</h2>
+                        <button class="px-4 py-2 bg-green-600/30 text-green-300 rounded-lg hover:bg-green-600/40 border border-green-500/30">
+                            创建备份
+                        </button>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="backup-item">
+                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <div class="flex-1">
+                                <div class="text-white">系统完整备份</div>
+                                <div class="text-sm text-gray-400">2024-03-06 12:00</div>
+                            </div>
+                            <button class="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                                还原
+                            </button>
+                        </div>
+                        <div class="backup-item">
+                            <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <div class="flex-1">
+                                <div class="text-white">配置备份</div>
+                                <div class="text-sm text-gray-400">2024-03-05 18:30</div>
+                            </div>
+                            <button class="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                                还原
+                            </button>
+                        </div>
+                        <div class="backup-item">
+                            <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                            <div class="flex-1">
+                                <div class="text-white">数据备份</div>
+                                <div class="text-sm text-gray-400">2024-03-04 09:15</div>
+                            </div>
+                            <button class="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                                还原
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部状态栏 -->
+        <div class="mt-8 config-card">
+            <div class="flex justify-between items-center">
+                <div class="flex space-x-8">
+                    <div>
+                        <div class="text-sm text-gray-400">系统版本</div>
+                        <div class="text-white">v2.3.0</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">最后备份</div>
+                        <div class="text-white">2小时前</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">系统状态</div>
+                        <div class="text-green-400">运行正常</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">在线用户</div>
+                        <div class="text-white">5人</div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span class="text-green-400">系统正常</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let configData = {
+            userId: null,
+            userRole: null,
+            isAdmin: false,
+            hasUnsavedChanges: false,
+            originalConfig: null,
+            currentConfig: null
+        };
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            loadUserData();
+            loadConfiguration();
+        });
+
+        // 初始化事件监听
+        function initializeEventListeners() {
+            // 导航事件
+            document.getElementById('nav-dashboard').addEventListener('click', () => {
+                if (configData.hasUnsavedChanges) {
+                    showAlert(
+                        '未保存的更改',
+                        '您有未保存的配置更改，确定要离开吗？',
+                        () => navigateToDashboard()
+                    );
+                    return;
+                }
+                navigateToDashboard();
+            });
+
+            document.getElementById('nav-permissions').addEventListener('click', () => {
+                if (!configData.isAdmin) {
+                    showAlert('权限不足', '只有管理员用户可以访问权限管理功能。');
+                    return;
+                }
+                navigateToPermissions();
+            });
+
+            // 保存按钮
+            document.querySelector('button:contains("保存更改")').addEventListener('click', () => {
+                if (!validateConfiguration()) {
+                    showAlert('配置无效', '请检查配置参数是否正确。');
+                    return;
+                }
+                saveConfiguration();
+            });
+
+            // 权限编辑按钮
+            document.querySelectorAll('.user-role button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const roleElement = e.target.closest('.user-role');
+                    const roleName = roleElement.querySelector('.text-white').textContent;
+                    editUserRole(roleName);
+                });
+            });
+
+            // 监听输入变化
+            document.querySelectorAll('input, select').forEach(input => {
+                input.addEventListener('change', () => {
+                    configData.hasUnsavedChanges = true;
+                    updateConfigStatus('unsaved');
+                });
+            });
+        }
+
+        // 显示警告弹窗
+        function showAlert(title, message, actionCallback = null) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').style.display = 'flex';
+            
+            const actionButton = document.getElementById('alertAction');
+            if (actionCallback) {
+                actionButton.style.display = 'block';
+                actionButton.onclick = actionCallback;
+            } else {
+                actionButton.style.display = 'none';
+            }
+        }
+
+        // 关闭警告弹窗
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        // 导航函数
+        function navigateTo(path, params = {}) {
+            const queryString = Object.keys(params)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+            window.location.href = queryString ? `${path}?${queryString}` : path;
+        }
+
+        // 导航到仪表盘
+        function navigateToDashboard() {
+            navigateTo('./dashboard.html', {
+                configSaved: configData.hasUnsavedChanges ? 'false' : 'true'
+            });
+        }
+
+        // 导航到权限管理
+        function navigateToPermissions() {
+            if (configData.hasUnsavedChanges) {
+                showAlert(
+                    '未保存的更改',
+                    '您有未保存的配置更改，是否先保存更改？',
+                    saveAndNavigateToPermissions
+                );
+            } else {
+                navigateTo('#permissions-section');
+            }
+        }
+
+        // 加载用户数据
+        function loadUserData() {
+            // 模拟从服务器获取用户数据
+            configData.userId = 'admin123';
+            configData.userRole = 'admin';
+            configData.isAdmin = true;
+        }
+
+        // 加载配置
+        function loadConfiguration() {
+            // 模拟从服务器获取配置数据
+            configData.originalConfig = {
+                training: {
+                    maxEpochs: 10000,
+                    batchSize: 64,
+                    learningRate: 0.001
+                },
+                system: {
+                    maxConcurrentTasks: 5,
+                    logRetentionDays: 30,
+                    sessionTimeout: 60
+                },
+                network: {
+                    mainInterface: {
+                        ip: '192.168.1.100',
+                        subnet: '255.255.255.0',
+                        gateway: '192.168.1.1'
+                    }
+                }
+            };
+            configData.currentConfig = JSON.parse(JSON.stringify(configData.originalConfig));
+            updateConfigDisplay();
+        }
+
+        // 验证配置
+        function validateConfiguration() {
+            // 实现配置验证逻辑
+            return true;
+        }
+
+        // 保存配置
+        function saveConfiguration() {
+            // 模拟保存配置到服务器
+            setTimeout(() => {
+                configData.originalConfig = JSON.parse(JSON.stringify(configData.currentConfig));
+                configData.hasUnsavedChanges = false;
+                updateConfigStatus('saved');
+                showAlert('保存成功', '系统配置已成功保存。');
+            }, 1000);
+        }
+
+        // 保存并导航到权限管理
+        function saveAndNavigateToPermissions() {
+            saveConfiguration();
+            setTimeout(() => {
+                navigateTo('#permissions-section');
+            }, 1000);
+        }
+
+        // 编辑用户角色
+        function editUserRole(roleName) {
+            if (!configData.isAdmin) {
+                showAlert('权限不足', '只有管理员用户可以编辑角色权限。');
+                return;
+            }
+            showAlert(
+                '编辑角色权限',
+                `确定要编辑 ${roleName} 的权限吗？`,
+                () => {
+                    // 实现权限编辑逻辑
+                    showAlert('权限更新', `${roleName} 的权限已更新。`);
+                }
+            );
+        }
+
+        // 更新配置状态
+        function updateConfigStatus(status) {
+            const statusElement = document.getElementById('configStatus');
+            if (status === 'saved') {
+                statusElement.innerHTML = '<span class="mr-2">●</span>配置已保存';
+                statusElement.classList.remove('text-yellow-400');
+                statusElement.classList.add('text-green-400');
+            } else {
+                statusElement.innerHTML = '<span class="mr-2">●</span>配置未保存';
+                statusElement.classList.remove('text-green-400');
+                statusElement.classList.add('text-yellow-400');
+            }
+        }
+
+        // 更新配置显示
+        function updateConfigDisplay() {
+            // 实现配置显示更新逻辑
+        }
+    </script>
+</body>
+</html> 

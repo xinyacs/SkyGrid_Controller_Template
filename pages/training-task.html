@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体强化学习的无人机协同系统 - 训练任务管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .task-card {
+            @apply bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/10 hover:bg-white/15 transition-all duration-300;
+        }
+        .parameter-input {
+            @apply bg-slate-800/50 border border-blue-500/30 rounded-lg px-4 py-2 text-white w-full focus:outline-none focus:border-blue-500;
+        }
+        .log-viewer {
+            @apply font-mono text-sm bg-slate-900/70 rounded-xl p-6 border border-slate-700/50 h-[300px] overflow-y-auto;
+        }
+        .log-line {
+            @apply text-gray-300 py-1;
+        }
+        .log-info {
+            @apply text-blue-400;
+        }
+        .log-warning {
+            @apply text-yellow-400;
+        }
+        .log-error {
+            @apply text-red-400;
+        }
+        .progress-bar {
+            @apply bg-blue-900/30 rounded-full h-2 overflow-hidden;
+        }
+        .progress-value {
+            @apply bg-blue-500 h-full rounded-full transition-all duration-300;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <!-- 警告弹窗 -->
+    <div id="alertModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold text-white mb-4" id="alertTitle">警告</h3>
+            <p class="text-gray-300 mb-6" id="alertMessage">警告信息</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeAlert()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                    取消
+                </button>
+                <button id="alertAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导航栏 -->
+    <nav class="bg-slate-800/50 backdrop-blur-md border-b border-white/10">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold text-white">无人机协同系统</h1>
+                    <div class="flex space-x-4">
+                        <a href="./dashboard.html" class="text-blue-300 hover:text-white transition-colors">
+                            返回仪表盘
+                        </a>
+                        <button id="nav-algorithm" class="text-blue-300 hover:text-white transition-colors">
+                            算法开发
+                        </button>
+                        <button id="nav-environment" class="text-blue-300 hover:text-white transition-colors">
+                            环境配置
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- 顶部标题 -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-white">训练任务管理</h1>
+            <p class="text-blue-200">任务创建 · 进度监控 · 参数调整</p>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：任务创建和监控 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 新建训练任务 -->
+                <div class="task-card">
+                    <h2 class="text-xl font-bold text-white mb-6">新建训练任务</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">任务名称</label>
+                            <input type="text" placeholder="输入任务名称" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">算法版本</label>
+                            <select class="parameter-input">
+                                <option>MADDPG v2.1.0</option>
+                                <option>QMIX v1.5.0</option>
+                                <option>MAPPO v1.2.0</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">训练环境</label>
+                            <select class="parameter-input">
+                                <option>搜索与救援场景</option>
+                                <option>区域巡逻场景</option>
+                                <option>目标追踪场景</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">训练回合数</label>
+                            <input type="number" value="1000" class="parameter-input">
+                        </div>
+                    </div>
+                    <button class="w-full mt-6 px-4 py-2 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                        创建任务
+                    </button>
+                </div>
+
+                <!-- 训练进度监控 -->
+                <div class="task-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">训练进度监控</h2>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                            <span class="text-green-400">正在训练</span>
+                        </div>
+                    </div>
+                    <div class="space-y-6">
+                        <!-- 总体进度 -->
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-blue-300">总体进度</span>
+                                <span class="text-white">45%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-value" style="width: 45%"></div>
+                            </div>
+                        </div>
+                        <!-- 性能指标 -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="bg-slate-800/50 rounded-lg p-4">
+                                <div class="text-sm text-gray-400">平均奖励</div>
+                                <div class="text-xl text-white mt-1">256.8</div>
+                            </div>
+                            <div class="bg-slate-800/50 rounded-lg p-4">
+                                <div class="text-sm text-gray-400">成功率</div>
+                                <div class="text-xl text-white mt-1">85.2%</div>
+                            </div>
+                            <div class="bg-slate-800/50 rounded-lg p-4">
+                                <div class="text-sm text-gray-400">当前回合</div>
+                                <div class="text-xl text-white mt-1">450/1000</div>
+                            </div>
+                            <div class="bg-slate-800/50 rounded-lg p-4">
+                                <div class="text-sm text-gray-400">训练时长</div>
+                                <div class="text-xl text-white mt-1">2h 45m</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 训练日志查看 -->
+                <div class="task-card">
+                    <h2 class="text-xl font-bold text-white mb-6">训练日志</h2>
+                    <div class="log-viewer">
+                        <div class="log-line log-info">[09:30:15] 开始训练任务: Task_20240306_001</div>
+                        <div class="log-line">[09:30:16] 初始化环境参数...</div>
+                        <div class="log-line">[09:30:18] 加载算法模型: MADDPG v2.1.0</div>
+                        <div class="log-line log-info">[09:35:20] 完成第100回合训练</div>
+                        <div class="log-line">- 平均奖励: 156.3</div>
+                        <div class="log-line">- 成功率: 75.5%</div>
+                        <div class="log-line log-warning">[09:40:25] 检测到性能波动，自动调整学习率</div>
+                        <div class="log-line log-info">[09:45:30] 完成第200回合训练</div>
+                        <div class="log-line">- 平均奖励: 198.7</div>
+                        <div class="log-line">- 成功率: 82.3%</div>
+                        <div class="log-line">[09:50:35] 保存检查点: checkpoint_200.pt</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：参数调整和控制 -->
+            <div class="space-y-6">
+                <!-- 训练参数实时调整 -->
+                <div class="task-card">
+                    <h2 class="text-xl font-bold text-white mb-6">参数实时调整</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">学习率</label>
+                            <input type="number" value="0.001" step="0.0001" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">探索率 (ε)</label>
+                            <input type="number" value="0.1" step="0.01" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">奖励缩放因子</label>
+                            <input type="number" value="1.0" step="0.1" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">批次大小</label>
+                            <input type="number" value="64" class="parameter-input">
+                        </div>
+                        <button class="w-full mt-4 px-4 py-2 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                            应用更改
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 训练控制 -->
+                <div class="task-card">
+                    <h2 class="text-xl font-bold text-white mb-6">训练控制</h2>
+                    <div class="space-y-4">
+                        <button class="w-full px-4 py-3 bg-red-600/30 text-red-300 rounded-lg hover:bg-red-600/40 border border-red-500/30 flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                            暂停训练
+                        </button>
+                        <button class="w-full px-4 py-3 bg-green-600/30 text-green-300 rounded-lg hover:bg-green-600/40 border border-green-500/30 flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                            </svg>
+                            恢复训练
+                        </button>
+                        <button class="w-full px-4 py-3 bg-yellow-600/30 text-yellow-300 rounded-lg hover:bg-yellow-600/40 border border-yellow-500/30 flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                            </svg>
+                            保存检查点
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 训练统计 -->
+                <div class="task-card">
+                    <h2 class="text-xl font-bold text-white mb-6">训练统计</h2>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400">总训练时长</span>
+                            <span class="text-white">2小时45分钟</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400">平均每回合时长</span>
+                            <span class="text-white">22秒</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400">检查点数量</span>
+                            <span class="text-white">5个</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-400">GPU使用率</span>
+                            <span class="text-white">85%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部状态栏 -->
+        <div class="mt-8 task-card flex justify-between items-center">
+            <div class="flex space-x-8 text-sm">
+                <div>
+                    <span class="text-gray-400">当前任务：</span>
+                    <span class="text-blue-300">Task_20240306_001</span>
+                </div>
+                <div>
+                    <span class="text-gray-400">训练状态：</span>
+                    <span class="text-green-400">进行中</span>
+                </div>
+                <div>
+                    <span class="text-gray-400">预计完成时间：</span>
+                    <span class="text-blue-300">约3小时后</span>
+                </div>
+            </div>
+            <div class="text-sm text-gray-400">
+                系统负载：CPU 65% | GPU 85% | 内存 42%
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentEnvironmentConfig = null;
+        let currentTaskId = null;
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            checkEnvironmentConfig();
+        });
+
+        // 初始化事件监听
+        function initializeEventListeners() {
+            // 导航事件
+            document.getElementById('nav-algorithm').addEventListener('click', () => {
+                if (!currentEnvironmentConfig) {
+                    showAlert('环境配置未完成', '请先完成训练环境配置后再进行算法开发。');
+                    return;
+                }
+                navigateTo('./algorithm-development.html', { configId: currentEnvironmentConfig });
+            });
+
+            document.getElementById('nav-environment').addEventListener('click', () => {
+                navigateTo('./environment-config.html');
+            });
+
+            // 创建任务按钮
+            document.querySelector('button:contains("创建任务")').addEventListener('click', createTrainingTask);
+        }
+
+        // 显示警告弹窗
+        function showAlert(title, message, actionCallback = null) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').style.display = 'flex';
+            
+            const actionButton = document.getElementById('alertAction');
+            if (actionCallback) {
+                actionButton.style.display = 'block';
+                actionButton.onclick = actionCallback;
+            } else {
+                actionButton.style.display = 'none';
+            }
+        }
+
+        // 关闭警告弹窗
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        // 导航函数
+        function navigateTo(path, params = {}) {
+            const queryString = Object.keys(params)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+            window.location.href = queryString ? `${path}?${queryString}` : path;
+        }
+
+        // 检查环境配置
+        function checkEnvironmentConfig() {
+            // 模拟从服务器获取环境配置
+            const urlParams = new URLSearchParams(window.location.search);
+            currentEnvironmentConfig = urlParams.get('configId');
+            
+            if (!currentEnvironmentConfig) {
+                showAlert(
+                    '环境配置缺失',
+                    '当前没有可用的训练环境配置，是否前往配置？',
+                    () => navigateTo('./environment-config.html')
+                );
+            }
+        }
+
+        // 创建训练任务
+        function createTrainingTask() {
+            const taskName = document.querySelector('input[placeholder="输入任务名称"]').value;
+            const algorithm = document.querySelector('select:contains("MADDPG")').value;
+            const environment = document.querySelector('select:contains("搜索与救援场景")').value;
+            const episodes = document.querySelector('input[type="number"]').value;
+
+            if (!taskName || !algorithm || !environment || !episodes) {
+                showAlert('参数不完整', '请填写所有必要的训练任务参数。');
+                return;
+            }
+
+            if (!currentEnvironmentConfig) {
+                showAlert(
+                    '环境配置缺失',
+                    '创建任务前需要完成环境配置，是否前往配置？',
+                    () => navigateTo('./environment-config.html')
+                );
+                return;
+            }
+
+            // 模拟创建任务
+            currentTaskId = `Task_${Date.now()}`;
+            showAlert(
+                '任务创建成功',
+                `训练任务 ${taskName} 已创建，是否立即开始训练？`,
+                startTraining
+            );
+        }
+
+        // 开始训练
+        function startTraining() {
+            // 更新UI状态
+            document.querySelector('.animate-pulse').style.display = 'block';
+            document.querySelector('span:contains("正在训练")').style.display = 'block';
+            
+            // 模拟训练进度更新
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += 1;
+                updateTrainingProgress(progress);
+                
+                if (progress >= 100) {
+                    clearInterval(progressInterval);
+                    showAlert(
+                        '训练完成',
+                        '训练任务已完成，是否查看训练结果？',
+                        () => navigateTo('./training-results.html', { taskId: currentTaskId })
+                    );
+                }
+            }, 1000);
+        }
+
+        // 更新训练进度
+        function updateTrainingProgress(progress) {
+            // 更新进度条
+            document.querySelector('.progress-value').style.width = `${progress}%`;
+            document.querySelector('span:contains("%")').textContent = `${progress}%`;
+
+            // 更新性能指标
+            const rewards = 200 + Math.random() * 100;
+            const successRate = 70 + (progress / 100) * 20;
+            const episode = Math.floor((progress / 100) * 1000);
+            
+            document.querySelector('div:contains("平均奖励")').nextElementSibling.textContent = rewards.toFixed(1);
+            document.querySelector('div:contains("成功率")').nextElementSibling.textContent = `${successRate.toFixed(1)}%`;
+            document.querySelector('div:contains("当前回合")').nextElementSibling.textContent = `${episode}/1000`;
+        }
+
+        // 应用参数更改
+        function applyParameterChanges() {
+            const learningRate = document.querySelector('input[value="0.001"]').value;
+            const epsilon = document.querySelector('input[value="0.1"]').value;
+            const rewardScale = document.querySelector('input[value="1.0"]').value;
+            const batchSize = document.querySelector('input[value="64"]').value;
+
+            showAlert(
+                '确认更改',
+                '确定要应用新的训练参数吗？这可能会影响训练效果。',
+                () => {
+                    // 模拟应用参数
+                    addTrainingLog('应用新的训练参数');
+                    addTrainingLog(`学习率: ${learningRate}, 探索率: ${epsilon}`);
+                    addTrainingLog(`奖励缩放: ${rewardScale}, 批次大小: ${batchSize}`);
+                }
+            );
+        }
+
+        // 添加训练日志
+        function addTrainingLog(message, type = 'info') {
+            const logViewer = document.querySelector('.log-viewer');
+            const time = new Date().toLocaleTimeString();
+            const logLine = document.createElement('div');
+            logLine.className = `log-line ${type === 'info' ? 'log-info' : type === 'warning' ? 'log-warning' : 'log-error'}`;
+            logLine.innerHTML = `[${time}] ${message}`;
+            logViewer.insertBefore(logLine, logViewer.firstChild);
+        }
+    </script>
+</body>
+</html> 

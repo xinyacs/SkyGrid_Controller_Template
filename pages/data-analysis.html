@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体强化学习的无人机协同系统 - 数据分析</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .analysis-card {
+            @apply bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/10 hover:bg-white/15 transition-all duration-300;
+        }
+        .chart-container {
+            @apply bg-slate-800/30 rounded-xl p-4 aspect-[16/9] relative overflow-hidden;
+        }
+        .chart-grid {
+            @apply absolute inset-0 grid;
+            grid-template-columns: repeat(24, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+        }
+        .chart-line {
+            @apply absolute h-px bg-slate-700;
+        }
+        .chart-point {
+            @apply w-2 h-2 rounded-full bg-blue-500 absolute;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+        .metric-card {
+            @apply bg-slate-800/50 rounded-lg p-4;
+        }
+        .metric-value {
+            @apply text-2xl font-bold;
+        }
+        .metric-label {
+            @apply text-sm text-gray-400;
+        }
+        .behavior-pattern {
+            @apply flex items-center space-x-2 p-2 rounded-lg bg-slate-800/50;
+        }
+        .decision-node {
+            @apply relative p-4 bg-slate-800/50 rounded-lg border border-blue-500/30;
+        }
+        .decision-arrow {
+            @apply absolute w-px h-8 bg-blue-500/30;
+        }
+        .report-section {
+            @apply bg-slate-800/50 rounded-lg p-4 border-l-4;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <!-- 警告弹窗 -->
+    <div id="alertModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold text-white mb-4" id="alertTitle">警告</h3>
+            <p class="text-gray-300 mb-6" id="alertMessage">警告信息</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeAlert()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                    取消
+                </button>
+                <button id="alertAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导航栏 -->
+    <nav class="bg-slate-800/50 backdrop-blur-md border-b border-white/10">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold text-white">无人机协同系统</h1>
+                    <div class="flex space-x-4">
+                        <a href="./dashboard.html" class="text-blue-300 hover:text-white transition-colors">
+                            返回仪表盘
+                        </a>
+                        <button id="nav-evaluation" class="text-blue-300 hover:text-white transition-colors">
+                            模型评估
+                        </button>
+                        <button id="nav-mission" class="text-blue-300 hover:text-white transition-colors">
+                            任务规划
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="analysisStatus" class="text-green-400">
+                        <span class="mr-2">●</span>分析进行中
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- 顶部标题 -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-white">数据分析</h1>
+            <p class="text-blue-200">训练数据 · 性能指标 · 行为分析</p>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：训练数据可视化和性能指标 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 训练数据可视化 -->
+                <div class="analysis-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">训练数据可视化</h2>
+                        <div class="flex space-x-4">
+                            <select class="bg-slate-800/50 text-white px-3 py-1 rounded-lg text-sm">
+                                <option>奖励值趋势</option>
+                                <option>损失函数</option>
+                                <option>策略熵</option>
+                            </select>
+                            <select class="bg-slate-800/50 text-white px-3 py-1 rounded-lg text-sm">
+                                <option>最近24小时</option>
+                                <option>最近7天</option>
+                                <option>最近30天</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-grid">
+                            <!-- 网格线 -->
+                            <div class="chart-line" style="top: 20%; left: 0; right: 0;"></div>
+                            <div class="chart-line" style="top: 40%; left: 0; right: 0;"></div>
+                            <div class="chart-line" style="top: 60%; left: 0; right: 0;"></div>
+                            <div class="chart-line" style="top: 80%; left: 0; right: 0;"></div>
+                            <!-- 数据点 -->
+                            <div class="chart-point" style="bottom: 30%; left: 20%;"></div>
+                            <div class="chart-point" style="bottom: 45%; left: 40%;"></div>
+                            <div class="chart-point" style="bottom: 60%; left: 60%;"></div>
+                            <div class="chart-point" style="bottom: 75%; left: 80%;"></div>
+                        </div>
+                        <!-- Y轴标签 -->
+                        <div class="absolute left-2 top-0 bottom-0 flex flex-col justify-between text-sm text-gray-400">
+                            <span>1.0</span>
+                            <span>0.8</span>
+                            <span>0.6</span>
+                            <span>0.4</span>
+                            <span>0.2</span>
+                            <span>0.0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 性能指标分析 -->
+                <div class="analysis-card">
+                    <h2 class="text-xl font-bold text-white mb-6">性能指标分析</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="metric-card">
+                            <div class="metric-value text-blue-400">92.5%</div>
+                            <div class="metric-label">任务成功率</div>
+                            <div class="text-xs text-green-400">↑ 2.3%</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value text-yellow-400">0.85</div>
+                            <div class="metric-label">平均奖励值</div>
+                            <div class="text-xs text-green-400">↑ 0.05</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value text-purple-400">1.2s</div>
+                            <div class="metric-label">决策时延</div>
+                            <div class="text-xs text-red-400">↑ 0.1s</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value text-green-400">89%</div>
+                            <div class="metric-label">资源利用率</div>
+                            <div class="text-xs text-green-400">↑ 1.5%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：行为模式和决策分析 -->
+            <div class="space-y-6">
+                <!-- 行为模式分析 -->
+                <div class="analysis-card">
+                    <h2 class="text-xl font-bold text-white mb-6">行为模式分析</h2>
+                    <div class="space-y-4">
+                        <div class="behavior-pattern">
+                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span class="text-white">协同避障</span>
+                            <span class="text-green-400 ml-auto">95% 匹配</span>
+                        </div>
+                        <div class="behavior-pattern">
+                            <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <span class="text-white">编队飞行</span>
+                            <span class="text-blue-400 ml-auto">88% 匹配</span>
+                        </div>
+                        <div class="behavior-pattern">
+                            <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                            <span class="text-white">目标追踪</span>
+                            <span class="text-yellow-400 ml-auto">82% 匹配</span>
+                        </div>
+                        <div class="behavior-pattern">
+                            <div class="w-3 h-3 bg-purple-500 rounded-full"></div>
+                            <span class="text-white">区域覆盖</span>
+                            <span class="text-purple-400 ml-auto">78% 匹配</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 决策过程追踪 -->
+                <div class="analysis-card">
+                    <h2 class="text-xl font-bold text-white mb-6">决策过程追踪</h2>
+                    <div class="space-y-6">
+                        <div class="decision-node">
+                            <div class="text-blue-300">状态评估</div>
+                            <div class="text-sm text-gray-400 mt-2">环境感知完成度: 92%</div>
+                            <div class="decision-arrow left-1/2 -bottom-8"></div>
+                        </div>
+                        <div class="decision-node">
+                            <div class="text-yellow-300">动作选择</div>
+                            <div class="text-sm text-gray-400 mt-2">策略置信度: 0.85</div>
+                            <div class="decision-arrow left-1/2 -bottom-8"></div>
+                        </div>
+                        <div class="decision-node">
+                            <div class="text-green-300">执行反馈</div>
+                            <div class="text-sm text-gray-400 mt-2">行动完成率: 88%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 报告生成 -->
+                <div class="analysis-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">分析报告</h2>
+                        <button class="px-4 py-2 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                            导出报告
+                        </button>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="report-section border-green-500">
+                            <div class="text-green-400 font-bold">性能提升</div>
+                            <p class="text-sm text-gray-400 mt-1">任务成功率较上周提升2.3%，主要得益于协同策略优化</p>
+                        </div>
+                        <div class="report-section border-yellow-500">
+                            <div class="text-yellow-400 font-bold">待优化项</div>
+                            <p class="text-sm text-gray-400 mt-1">决策时延略有上升，建议优化网络架构</p>
+                        </div>
+                        <div class="report-section border-blue-500">
+                            <div class="text-blue-400 font-bold">行为特征</div>
+                            <p class="text-sm text-gray-400 mt-1">协同避障模式表现最佳，编队保持稳定</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部时间轴 -->
+        <div class="mt-8 analysis-card">
+            <div class="flex justify-between items-center">
+                <div class="flex space-x-8">
+                    <div>
+                        <div class="text-sm text-gray-400">分析开始时间</div>
+                        <div class="text-white">2024-03-06 00:00</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">分析结束时间</div>
+                        <div class="text-white">2024-03-06 23:59</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">数据点数量</div>
+                        <div class="text-white">24,856</div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span class="text-green-400">实时同步中</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let analysisData = {
+            selectedMetrics: [],
+            performanceThresholds: {
+                taskSuccess: 90,
+                averageReward: 0.8,
+                decisionDelay: 1.5,
+                resourceUtilization: 85
+            },
+            currentAnalysis: null,
+            recommendations: []
+        };
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            startDataAnalysis();
+            checkPerformanceMetrics();
+        });
+
+        // 初始化事件监听
+        function initializeEventListeners() {
+            // 导航事件
+            document.getElementById('nav-evaluation').addEventListener('click', () => {
+                if (!validateAnalysisResults()) {
+                    showAlert('分析未完成', '请等待当前分析完成后再进行模型评估。');
+                    return;
+                }
+                navigateToModelEvaluation();
+            });
+
+            document.getElementById('nav-mission').addEventListener('click', () => {
+                if (!hasActionableInsights()) {
+                    showAlert('缺少可操作的建议', '当前分析结果没有需要调整的任务建议。');
+                    return;
+                }
+                navigateToMissionPlanning();
+            });
+
+            // 图表选择事件
+            document.querySelectorAll('select').forEach(select => {
+                select.addEventListener('change', () => {
+                    updateAnalysisView();
+                });
+            });
+
+            // 导出报告按钮
+            document.querySelector('button:contains("导出报告")').addEventListener('click', exportReport);
+        }
+
+        // 显示警告弹窗
+        function showAlert(title, message, actionCallback = null) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').style.display = 'flex';
+            
+            const actionButton = document.getElementById('alertAction');
+            if (actionCallback) {
+                actionButton.style.display = 'block';
+                actionButton.onclick = actionCallback;
+            } else {
+                actionButton.style.display = 'none';
+            }
+        }
+
+        // 关闭警告弹窗
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        // 导航函数
+        function navigateTo(path, params = {}) {
+            const queryString = Object.keys(params)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+            window.location.href = queryString ? `${path}?${queryString}` : path;
+        }
+
+        // 导航到模型评估页面
+        function navigateToModelEvaluation() {
+            const metrics = analysisData.selectedMetrics;
+            if (metrics.some(m => m.performance < m.threshold)) {
+                showAlert(
+                    '性能指标警告',
+                    '部分指标未达到预期阈值，建议先优化模型。是否继续进行评估？',
+                    () => navigateTo('./model-evaluation.html', {
+                        analysisId: analysisData.currentAnalysis.id,
+                        metrics: metrics.map(m => m.id).join(',')
+                    })
+                );
+            } else {
+                navigateTo('./model-evaluation.html', {
+                    analysisId: analysisData.currentAnalysis.id,
+                    metrics: metrics.map(m => m.id).join(',')
+                });
+            }
+        }
+
+        // 导航到任务规划页面
+        function navigateToMissionPlanning() {
+            const recommendations = analysisData.recommendations;
+            if (recommendations.some(r => r.priority === 'high')) {
+                showAlert(
+                    '重要调整建议',
+                    '发现需要优先处理的任务调整建议，是否立即进行规划？',
+                    () => navigateTo('./mission-planning.html', {
+                        analysisId: analysisData.currentAnalysis.id,
+                        recommendations: recommendations.map(r => r.id).join(',')
+                    })
+                );
+            } else {
+                navigateTo('./mission-planning.html', {
+                    analysisId: analysisData.currentAnalysis.id,
+                    recommendations: recommendations.map(r => r.id).join(',')
+                });
+            }
+        }
+
+        // 验证分析结果
+        function validateAnalysisResults() {
+            return analysisData.currentAnalysis && 
+                   analysisData.currentAnalysis.status === 'completed' &&
+                   analysisData.selectedMetrics.length > 0;
+        }
+
+        // 检查是否有可操作的建议
+        function hasActionableInsights() {
+            return analysisData.recommendations.length > 0;
+        }
+
+        // 开始数据分析
+        function startDataAnalysis() {
+            // 模拟数据分析过程
+            analysisData.currentAnalysis = {
+                id: Date.now().toString(),
+                status: 'in_progress',
+                startTime: new Date(),
+                metrics: {}
+            };
+
+            // 更新分析状态
+            updateAnalysisStatus();
+
+            // 模拟分析完成
+            setTimeout(() => {
+                analysisData.currentAnalysis.status = 'completed';
+                generateRecommendations();
+                updateAnalysisStatus();
+            }, 3000);
+        }
+
+        // 检查性能指标
+        function checkPerformanceMetrics() {
+            setInterval(() => {
+                const metrics = getPerformanceMetrics();
+                analysisData.selectedMetrics = metrics;
+
+                const criticalMetrics = metrics.filter(m => m.performance < m.threshold);
+                if (criticalMetrics.length > 0) {
+                    showAlert(
+                        '性能指标警告',
+                        `${criticalMetrics.length} 个指标未达到预期阈值，建议进行模型评估。`,
+                        () => navigateToModelEvaluation()
+                    );
+                }
+            }, 10000);
+        }
+
+        // 获取性能指标
+        function getPerformanceMetrics() {
+            return [
+                {
+                    id: 'task_success',
+                    name: '任务成功率',
+                    performance: 92.5,
+                    threshold: analysisData.performanceThresholds.taskSuccess,
+                    trend: 'up'
+                },
+                {
+                    id: 'avg_reward',
+                    name: '平均奖励值',
+                    performance: 0.85,
+                    threshold: analysisData.performanceThresholds.averageReward,
+                    trend: 'up'
+                },
+                // ... 其他指标
+            ];
+        }
+
+        // 生成建议
+        function generateRecommendations() {
+            analysisData.recommendations = [
+                {
+                    id: 'rec_001',
+                    type: 'performance',
+                    message: '建议优化决策时延',
+                    priority: 'high',
+                    metric: 'decision_delay'
+                },
+                {
+                    id: 'rec_002',
+                    type: 'behavior',
+                    message: '提高协同避障效率',
+                    priority: 'medium',
+                    metric: 'collision_avoidance'
+                }
+                // ... 其他建议
+            ];
+        }
+
+        // 更新分析状态
+        function updateAnalysisStatus() {
+            const status = document.getElementById('analysisStatus');
+            if (analysisData.currentAnalysis.status === 'completed') {
+                status.innerHTML = '<span class="mr-2">●</span>分析完成';
+                status.classList.remove('text-yellow-400');
+                status.classList.add('text-green-400');
+            } else {
+                status.innerHTML = '<span class="mr-2">●</span>分析进行中';
+                status.classList.remove('text-green-400');
+                status.classList.add('text-yellow-400');
+            }
+        }
+
+        // 更新分析视图
+        function updateAnalysisView() {
+            // 更新图表和指标显示
+            updateCharts();
+            updateMetrics();
+            updateBehaviorPatterns();
+            updateDecisionProcess();
+        }
+
+        // 导出报告
+        function exportReport() {
+            if (!validateAnalysisResults()) {
+                showAlert('无法导出', '请等待分析完成后再导出报告。');
+                return;
+            }
+
+            showAlert(
+                '导出报告',
+                '是否包含任务规划建议在报告中？',
+                () => {
+                    // 模拟导出过程
+                    setTimeout(() => {
+                        showAlert('导出成功', '报告已成功导出到指定位置。');
+                    }, 1000);
+                }
+            );
+        }
+
+        // 更新图表
+        function updateCharts() {
+            // 实现图表更新逻辑
+        }
+
+        // 更新指标
+        function updateMetrics() {
+            // 实现指标更新逻辑
+        }
+
+        // 更新行为模式
+        function updateBehaviorPatterns() {
+            // 实现行为模式更新逻辑
+        }
+
+        // 更新决策过程
+        function updateDecisionProcess() {
+            // 实现决策过程更新逻辑
+        }
+    </script>
+</body>
+</html> 

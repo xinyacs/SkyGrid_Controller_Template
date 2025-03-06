@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体强化学习的无人机协同系统 - 登录</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 添加 SweetAlert2 用于优雅的提示 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
+        }
+        .float-animation {
+            animation: float 6s ease-in-out infinite;
+        }
+        .bg-mesh {
+            background-image: radial-gradient(#1a365d 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .error-input {
+            border-color: rgb(239, 68, 68) !important;
+        }
+        .loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        /* 添加加载动画 */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffffff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to {transform: rotate(360deg);}
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 bg-mesh">
+    <div class="container mx-auto px-4 h-screen flex items-center justify-center">
+        <div class="w-full max-w-6xl flex rounded-2xl overflow-hidden shadow-2xl bg-white/10 backdrop-blur-lg">
+            <!-- 左侧信息面板 -->
+            <div class="hidden lg:block w-1/2 p-12 bg-gradient-to-br from-blue-600/20 to-blue-800/20">
+                <div class="h-full flex flex-col justify-between">
+                    <div>
+                        <h1 class="text-4xl font-bold text-white mb-6">多智能体强化学习的无人机协同系统</h1>
+                        <p class="text-blue-100 mb-8">基于先进的强化学习算法，实现多无人机协同作业的智能控制系统</p>
+                        
+                        <div class="space-y-4 text-blue-100">
+                            <div class="flex items-center">
+                                <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span>实时多机协同控制</span>
+                            </div>
+                            <div class="flex items-center">
+                                <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span>智能路径规划</span>
+                            </div>
+                            <div class="flex items-center">
+                                <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span>自适应任务分配</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="float-animation">
+                        <svg class="w-64 h-64 mx-auto text-blue-100/80" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧登录面板 -->
+            <div class="w-full lg:w-1/2 p-12">
+                <div class="max-w-md mx-auto">
+                    <div class="text-center mb-8">
+                        <h2 class="text-3xl font-bold text-white mb-2">系统登录</h2>
+                        <p class="text-blue-100">请选择您的角色并登录系统</p>
+                    </div>
+
+                    <form id="loginForm" class="space-y-6">
+                        <div>
+                            <label class="block text-blue-100 mb-2">用户名</label>
+                            <input type="text" id="username" name="username" class="w-full px-4 py-3 rounded-lg bg-white/10 border border-blue-300/30 text-white placeholder-blue-200/50 focus:outline-none focus:border-blue-400 backdrop-blur-sm" placeholder="请输入用户名" required>
+                            <span class="text-red-500 text-sm hidden" id="usernameError"></span>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-blue-100 mb-2">密码</label>
+                            <input type="password" id="password" name="password" class="w-full px-4 py-3 rounded-lg bg-white/10 border border-blue-300/30 text-white placeholder-blue-200/50 focus:outline-none focus:border-blue-400 backdrop-blur-sm" placeholder="请输入密码" required>
+                            <span class="text-red-500 text-sm hidden" id="passwordError"></span>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-blue-100 mb-2">选择角色</label>
+                            <select id="role" name="role" class="w-full px-4 py-3 rounded-lg bg-white/10 border border-blue-300/30 text-white focus:outline-none focus:border-blue-400 backdrop-blur-sm" required>
+                                <option value="" class="bg-blue-900">请选择角色</option>
+                                <option value="admin" class="bg-blue-900">系统管理员</option>
+                                <option value="operator" class="bg-blue-900">操作员</option>
+                                <option value="observer" class="bg-blue-900">观察者</option>
+                            </select>
+                            <span class="text-red-500 text-sm hidden" id="roleError"></span>
+                        </div>
+
+                        <div class="flex items-center justify-between text-sm">
+                            <label class="flex items-center text-blue-100">
+                                <input type="checkbox" id="remember" name="remember" class="mr-2 rounded bg-white/10 border-blue-300/30">
+                                记住我
+                            </label>
+                            <a href="#" class="text-blue-300 hover:text-blue-200" id="forgotPassword">忘记密码？</a>
+                        </div>
+
+                        <button type="submit" id="loginButton" class="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-blue-800 transition-all duration-300 flex items-center justify-center">
+                            <span>登录系统</span>
+                            <div class="spinner ml-3"></div>
+                        </button>
+                    </form>
+
+                    <div class="mt-8 pt-6 border-t border-blue-300/20">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-blue-200">系统版本: v2.1.0</span>
+                            <span class="text-sm text-blue-200">© 2024 版权所有</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 模拟用户数据（实际应用中应该从后端获取）
+        const mockUsers = {
+            'admin': { password: 'admin123', role: 'admin' },
+            'operator': { password: 'operator123', role: 'operator' },
+            'observer': { password: 'observer123', role: 'observer' }
+        };
+
+        // 角色对应的跳转页面
+        const roleRedirects = {
+            'admin': './dashboard.html',  // 管理员跳转到仪表盘
+            'operator': './dashboard.html',  // 操作员跳转到仪表盘
+            'observer': './dashboard.html'   // 观察者跳转到仪表盘
+        };
+
+        // 预设的快捷登录提示
+        const loginHints = {
+            'admin': '系统管理员账号为: admin，密码为: admin123',
+            'operator': '操作员账号为: operator，密码为: operator123',
+            'observer': '观察者账号为: observer，密码为: observer123'
+        };
+
+        // 添加角色选择提示
+        document.getElementById('role').addEventListener('change', function(e) {
+            const selectedRole = e.target.value;
+            if (selectedRole && loginHints[selectedRole]) {
+                Swal.fire({
+                    icon: 'info',
+                    title: '登录提示',
+                    text: loginHints[selectedRole],
+                    confirmButtonText: '知道了'
+                });
+            }
+        });
+
+        // 添加输入框点击提示
+        document.getElementById('username').addEventListener('focus', function() {
+            const role = document.getElementById('role').value;
+            if (role && loginHints[role]) {
+                Swal.fire({
+                    icon: 'info',
+                    title: '账号提示',
+                    text: loginHints[role],
+                    confirmButtonText: '知道了'
+                });
+            }
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // 获取表单数据
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const role = document.getElementById('role').value;
+            const remember = document.getElementById('remember').checked;
+
+            // 重置错误提示
+            resetErrors();
+
+            // 表单验证
+            if (!validateForm(username, password, role)) {
+                return;
+            }
+
+            // 显示加载状态
+            setLoadingState(true);
+
+            try {
+                // 模拟API调用延迟
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                // 验证用户信息
+                if (mockUsers[username] && 
+                    mockUsers[username].password === password && 
+                    mockUsers[username].role === role) {
+                    
+                    // 如果选择记住我，存储登录信息
+                    if (remember) {
+                        localStorage.setItem('user', JSON.stringify({
+                            username,
+                            role
+                        }));
+                    }
+
+                    // 登录成功提示
+                    await Swal.fire({
+                        icon: 'success',
+                        title: '登录成功',
+                        text: '正在跳转到系统...',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+
+                    // 根据角色跳转
+                    window.location.href = roleRedirects[role];
+                } else {
+                    throw new Error('用户名或密码错误');
+                }
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: '登录失败',
+                    text: error.message,
+                    confirmButtonText: '确定'
+                });
+            } finally {
+                setLoadingState(false);
+            }
+        });
+
+        // 表单验证函数
+        function validateForm(username, password, role) {
+            let isValid = true;
+
+            if (!username) {
+                showError('username', '请输入用户名');
+                isValid = false;
+            }
+
+            if (!password) {
+                showError('password', '请输入密码');
+                isValid = false;
+            }
+
+            if (!role) {
+                showError('role', '请选择角色');
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
+        // 显示错误信息
+        function showError(fieldId, message) {
+            const field = document.getElementById(fieldId);
+            const errorSpan = document.getElementById(fieldId + 'Error');
+            field.classList.add('error-input');
+            errorSpan.textContent = message;
+            errorSpan.classList.remove('hidden');
+        }
+
+        // 重置错误提示
+        function resetErrors() {
+            const fields = ['username', 'password', 'role'];
+            fields.forEach(field => {
+                document.getElementById(field).classList.remove('error-input');
+                document.getElementById(field + 'Error').classList.add('hidden');
+            });
+        }
+
+        // 设置加载状态
+        function setLoadingState(isLoading) {
+            const loginButton = document.getElementById('loginButton');
+            const spinner = document.querySelector('.spinner');
+            const buttonText = loginButton.querySelector('span');
+
+            if (isLoading) {
+                loginButton.classList.add('loading');
+                spinner.style.display = 'block';
+                buttonText.textContent = '登录中...';
+            } else {
+                loginButton.classList.remove('loading');
+                spinner.style.display = 'none';
+                buttonText.textContent = '登录系统';
+            }
+        }
+
+        // 忘记密码处理
+        document.getElementById('forgotPassword').addEventListener('click', function(e) {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'info',
+                title: '忘记密码',
+                text: '请联系系统管理员重置密码',
+                confirmButtonText: '确定'
+            });
+        });
+
+        // 检查是否已经登录
+        window.addEventListener('load', function() {
+            const savedUser = localStorage.getItem('user');
+            if (savedUser) {
+                const user = JSON.parse(savedUser);
+                document.getElementById('username').value = user.username;
+                document.getElementById('role').value = user.role;
+                document.getElementById('remember').checked = true;
+            }
+        });
+    </script>
+</body>
+</html> 

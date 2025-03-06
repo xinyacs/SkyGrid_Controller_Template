@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体强化学习的无人机协同系统 - 仿真测试</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .sim-card {
+            @apply bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/10 hover:bg-white/15 transition-all duration-300;
+        }
+        .env-input {
+            @apply bg-slate-800/50 border border-blue-500/30 rounded-lg px-4 py-2 text-white w-full focus:outline-none focus:border-blue-500;
+        }
+        .env-group {
+            @apply bg-slate-800/50 rounded-lg p-4;
+        }
+        .scenario-item {
+            @apply flex items-center space-x-4 p-3 rounded-lg bg-slate-800/50;
+        }
+        .status-badge {
+            @apply px-3 py-1 rounded-full text-sm font-medium;
+        }
+        .status-badge.running {
+            @apply bg-green-500/20 text-green-400 border border-green-500/30;
+        }
+        .status-badge.paused {
+            @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
+        }
+        .status-badge.stopped {
+            @apply bg-red-500/20 text-red-400 border border-red-500/30;
+        }
+        .metric-card {
+            @apply bg-slate-800/50 rounded-lg p-4;
+        }
+        .metric-value {
+            @apply text-2xl font-bold;
+        }
+        .metric-label {
+            @apply text-sm text-gray-400;
+        }
+        .performance-chart {
+            @apply bg-slate-800/30 rounded-xl p-4 aspect-[16/9] relative overflow-hidden;
+        }
+        .chart-grid {
+            @apply absolute inset-0 grid;
+            grid-template-columns: repeat(24, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+        }
+        .chart-line {
+            @apply absolute h-px bg-slate-700;
+        }
+        .performance-line {
+            @apply absolute h-0.5 bg-gradient-to-r;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <!-- 警告弹窗 -->
+    <div id="alertModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold text-white mb-4" id="alertTitle">警告</h3>
+            <p class="text-gray-300 mb-6" id="alertMessage">警告信息</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeAlert()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                    取消
+                </button>
+                <button id="alertAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导航栏 -->
+    <nav class="bg-slate-800/50 backdrop-blur-md border-b border-white/10">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold text-white">无人机协同系统</h1>
+                    <div class="flex space-x-4">
+                        <button id="nav-training" class="text-blue-300 hover:text-white transition-colors">
+                            训练任务管理
+                        </button>
+                        <button id="nav-evaluation" class="text-blue-300 hover:text-white transition-colors">
+                            模型评估
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="simulationStatus" class="text-yellow-400">
+                        <span class="mr-2">●</span>仿真进行中
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- 顶部标题 -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-white">仿真测试</h1>
+            <p class="text-blue-200">环境配置 · 场景管理 · 性能分析</p>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：仿真环境配置和测试场景管理 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 仿真环境配置 -->
+                <div class="sim-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">仿真环境配置</h2>
+                        <button class="px-4 py-2 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                            保存配置
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="env-group">
+                            <h3 class="text-lg font-semibold text-white mb-4">环境参数</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">地图大小</label>
+                                    <input type="text" value="1000x1000m" class="env-input">
+                                </div>
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">障碍物数量</label>
+                                    <input type="number" value="20" class="env-input">
+                                </div>
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">天气条件</label>
+                                    <select class="env-input">
+                                        <option>晴天</option>
+                                        <option>多云</option>
+                                        <option>雨天</option>
+                                        <option>大风</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="env-group">
+                            <h3 class="text-lg font-semibold text-white mb-4">无人机设置</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">无人机数量</label>
+                                    <input type="number" value="5" class="env-input">
+                                </div>
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">初始位置</label>
+                                    <select class="env-input">
+                                        <option>随机分布</option>
+                                        <option>固定阵型</option>
+                                        <option>聚集分布</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-blue-300 text-sm mb-2">通信范围</label>
+                                    <input type="number" value="100" class="env-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 测试场景管理 -->
+                <div class="sim-card">
+                    <h2 class="text-xl font-bold text-white mb-6">测试场景管理</h2>
+                    <div class="space-y-4">
+                        <div class="scenario-item">
+                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <div class="flex-1">
+                                <div class="text-white">区域巡逻场景</div>
+                                <div class="text-sm text-gray-400">5架无人机，大型区域巡逻任务</div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="px-3 py-1 bg-green-600/30 text-green-300 rounded-lg hover:bg-green-600/40 border border-green-500/30">
+                                    运行
+                                </button>
+                                <button class="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                                    编辑
+                                </button>
+                            </div>
+                        </div>
+                        <div class="scenario-item">
+                            <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                            <div class="flex-1">
+                                <div class="text-white">目标追踪场景</div>
+                                <div class="text-sm text-gray-400">3架无人机，动态目标追踪</div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="px-3 py-1 bg-green-600/30 text-green-300 rounded-lg hover:bg-green-600/40 border border-green-500/30">
+                                    运行
+                                </button>
+                                <button class="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                                    编辑
+                                </button>
+                            </div>
+                        </div>
+                        <div class="scenario-item">
+                            <div class="w-3 h-3 bg-purple-500 rounded-full"></div>
+                            <div class="flex-1">
+                                <div class="text-white">协同避障场景</div>
+                                <div class="text-sm text-gray-400">8架无人机，密集障碍环境</div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="px-3 py-1 bg-green-600/30 text-green-300 rounded-lg hover:bg-green-600/40 border border-green-500/30">
+                                    运行
+                                </button>
+                                <button class="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                                    编辑
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：仿真控制和结果分析 -->
+            <div class="space-y-6">
+                <!-- 仿真运行控制 -->
+                <div class="sim-card">
+                    <h2 class="text-xl font-bold text-white mb-6">仿真运行控制</h2>
+                    <div class="space-y-4">
+                        <div class="env-group">
+                            <div class="flex justify-between items-center mb-4">
+                                <span class="text-white">当前状态</span>
+                                <span class="status-badge running">运行中</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 mt-4">
+                                <button class="px-4 py-2 bg-red-600/30 text-red-300 rounded-lg hover:bg-red-600/40 border border-red-500/30">
+                                    停止
+                                </button>
+                                <button class="px-4 py-2 bg-yellow-600/30 text-yellow-300 rounded-lg hover:bg-yellow-600/40 border border-yellow-500/30">
+                                    暂停
+                                </button>
+                            </div>
+                        </div>
+                        <div class="env-group">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-white">仿真进度</span>
+                                <span class="text-sm text-gray-400">75%</span>
+                            </div>
+                            <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div class="h-full bg-blue-500 rounded-full" style="width: 75%"></div>
+                            </div>
+                            <div class="text-sm text-gray-400 mt-2">预计剩余时间: 15分钟</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 结果分析 -->
+                <div class="sim-card">
+                    <h2 class="text-xl font-bold text-white mb-6">结果分析</h2>
+                    <div class="space-y-4">
+                        <div class="metric-card">
+                            <div class="metric-value text-blue-400">92.5%</div>
+                            <div class="metric-label">任务完成率</div>
+                            <div class="text-xs text-green-400">↑ 3.2%</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value text-green-400">0.89</div>
+                            <div class="metric-label">协同效率</div>
+                            <div class="text-xs text-green-400">↑ 0.05</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value text-purple-400">1.5s</div>
+                            <div class="metric-label">平均响应时间</div>
+                            <div class="text-xs text-red-400">↑ 0.2s</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 性能对比 -->
+                <div class="sim-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">性能对比</h2>
+                        <select class="bg-slate-800/50 text-white px-3 py-1 rounded-lg text-sm">
+                            <option>最近10次</option>
+                            <option>最近50次</option>
+                            <option>全部记录</option>
+                        </select>
+                    </div>
+                    <div class="performance-chart">
+                        <div class="chart-grid">
+                            <div class="chart-line" style="top: 20%; left: 0; right: 0;"></div>
+                            <div class="chart-line" style="top: 40%; left: 0; right: 0;"></div>
+                            <div class="chart-line" style="top: 60%; left: 0; right: 0;"></div>
+                            <div class="chart-line" style="top: 80%; left: 0; right: 0;"></div>
+                            <div class="performance-line from-blue-500 to-green-500" style="bottom: 30%; left: 10%; right: 20%; transform: skew(10deg);"></div>
+                        </div>
+                        <div class="absolute left-2 top-0 bottom-0 flex flex-col justify-between text-sm text-gray-400">
+                            <span>100%</span>
+                            <span>75%</span>
+                            <span>50%</span>
+                            <span>25%</span>
+                            <span>0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部状态栏 -->
+        <div class="mt-8 sim-card">
+            <div class="flex justify-between items-center">
+                <div class="flex space-x-8">
+                    <div>
+                        <div class="text-sm text-gray-400">当前场景</div>
+                        <div class="text-white">区域巡逻场景</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">运行时间</div>
+                        <div class="text-white">45分钟</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">CPU使用率</div>
+                        <div class="text-yellow-400">85%</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">内存使用</div>
+                        <div class="text-white">12.5GB</div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span class="text-green-400">仿真正常</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let simulationData = {
+            scenarioId: null,
+            status: 'not_started', // not_started, running, paused, completed, failed
+            progress: 0,
+            results: null,
+            metrics: {
+                taskCompletion: 0,
+                efficiency: 0,
+                responseTime: 0
+            },
+            environment: {
+                mapSize: '1000x1000m',
+                obstacles: 20,
+                weather: '晴天',
+                drones: 5
+            }
+        };
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            loadSimulationData();
+        });
+
+        // 初始化事件监听
+        function initializeEventListeners() {
+            // 导航事件
+            document.getElementById('nav-training').addEventListener('click', () => {
+                if (!isSimulationComplete()) {
+                    showAlert('仿真未完成', '请等待仿真测试完成后再进行训练任务管理。');
+                    return;
+                }
+                navigateToTraining();
+            });
+
+            document.getElementById('nav-evaluation').addEventListener('click', () => {
+                if (!hasValidResults()) {
+                    showAlert('无有效结果', '请先完成仿真测试并获取有效结果。');
+                    return;
+                }
+                navigateToEvaluation();
+            });
+
+            // 场景运行按钮
+            document.querySelectorAll('.scenario-item button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const action = e.target.textContent.trim();
+                    const scenarioElement = e.target.closest('.scenario-item');
+                    const scenarioName = scenarioElement.querySelector('.text-white').textContent;
+                    handleScenarioAction(scenarioName, action);
+                });
+            });
+
+            // 控制按钮
+            document.querySelector('button:contains("停止")').addEventListener('click', stopSimulation);
+            document.querySelector('button:contains("暂停")').addEventListener('click', pauseSimulation);
+        }
+
+        // 显示警告弹窗
+        function showAlert(title, message, actionCallback = null) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').style.display = 'flex';
+            
+            const actionButton = document.getElementById('alertAction');
+            if (actionCallback) {
+                actionButton.style.display = 'block';
+                actionButton.onclick = actionCallback;
+            } else {
+                actionButton.style.display = 'none';
+            }
+        }
+
+        // 关闭警告弹窗
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        // 导航函数
+        function navigateTo(path, params = {}) {
+            const queryString = Object.keys(params)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+            window.location.href = queryString ? `${path}?${queryString}` : path;
+        }
+
+        // 导航到训练任务管理
+        function navigateToTraining() {
+            const results = simulationData.results;
+            if (results.performance < 0.8) {
+                showAlert(
+                    '性能警告',
+                    '当前仿真结果性能较低，建议优化后再进行训练。是否继续？',
+                    () => navigateTo('./training-task.html', {
+                        simulationId: simulationData.scenarioId,
+                        results: JSON.stringify(results)
+                    })
+                );
+            } else {
+                navigateTo('./training-task.html', {
+                    simulationId: simulationData.scenarioId,
+                    results: JSON.stringify(results)
+                });
+            }
+        }
+
+        // 导航到模型评估
+        function navigateToEvaluation() {
+            const metrics = simulationData.metrics;
+            if (metrics.taskCompletion < 0.9) {
+                showAlert(
+                    '评估建议',
+                    '任务完成率未达到最优水平，建议进行优化。是否继续评估？',
+                    () => navigateTo('./model-evaluation.html', {
+                        simulationId: simulationData.scenarioId,
+                        metrics: JSON.stringify(metrics)
+                    })
+                );
+            } else {
+                navigateTo('./model-evaluation.html', {
+                    simulationId: simulationData.scenarioId,
+                    metrics: JSON.stringify(metrics)
+                });
+            }
+        }
+
+        // 检查仿真是否完成
+        function isSimulationComplete() {
+            return simulationData.status === 'completed';
+        }
+
+        // 检查是否有有效结果
+        function hasValidResults() {
+            return simulationData.results !== null && 
+                   simulationData.status === 'completed';
+        }
+
+        // 加载仿真数据
+        function loadSimulationData() {
+            // 获取URL参数
+            const urlParams = new URLSearchParams(window.location.search);
+            simulationData.scenarioId = urlParams.get('scenarioId');
+
+            // 更新仿真状态
+            updateSimulationStatus('not_started');
+        }
+
+        // 处理场景操作
+        function handleScenarioAction(scenarioName, action) {
+            if (action === '运行') {
+                if (simulationData.status === 'running') {
+                    showAlert('仿真进行中', '请等待当前仿真完成后再启动新的仿真。');
+                    return;
+                }
+                showAlert(
+                    '启动仿真',
+                    `确定要运行 ${scenarioName} 场景吗？`,
+                    () => startSimulation(scenarioName)
+                );
+            } else if (action === '编辑') {
+                if (simulationData.status === 'running') {
+                    showAlert('仿真进行中', '请等待当前仿真完成后再编辑场景。');
+                    return;
+                }
+                editScenario(scenarioName);
+            }
+        }
+
+        // 启动仿真
+        function startSimulation(scenarioName) {
+            simulationData.status = 'running';
+            updateSimulationStatus('running');
+            simulateProgress();
+        }
+
+        // 暂停仿真
+        function pauseSimulation() {
+            if (simulationData.status !== 'running') {
+                showAlert('操作无效', '仿真未在运行中。');
+                return;
+            }
+            simulationData.status = 'paused';
+            updateSimulationStatus('paused');
+        }
+
+        // 停止仿真
+        function stopSimulation() {
+            if (simulationData.status === 'not_started') {
+                showAlert('操作无效', '仿真未启动。');
+                return;
+            }
+            showAlert(
+                '停止仿真',
+                '确定要停止当前仿真吗？这将丢失所有进度。',
+                () => {
+                    simulationData.status = 'not_started';
+                    simulationData.progress = 0;
+                    updateSimulationStatus('not_started');
+                }
+            );
+        }
+
+        // 编辑场景
+        function editScenario(scenarioName) {
+            showAlert(
+                '编辑场景',
+                `确定要编辑 ${scenarioName} 场景吗？`,
+                () => {
+                    // 实现场景编辑逻辑
+                    showAlert('场景更新', `${scenarioName} 场景已更新。`);
+                }
+            );
+        }
+
+        // 模拟仿真进度
+        function simulateProgress() {
+            let progress = 0;
+            const interval = setInterval(() => {
+                if (simulationData.status !== 'running') {
+                    clearInterval(interval);
+                    return;
+                }
+                progress += 5;
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    simulationData.status = 'completed';
+                    simulationData.progress = 100;
+                    simulationData.results = generateResults();
+                    updateSimulationStatus('completed');
+                    showSimulationResults();
+                } else {
+                    simulationData.progress = progress;
+                    updateProgress(progress);
+                }
+            }, 1000);
+        }
+
+        // 生成仿真结果
+        function generateResults() {
+            return {
+                performance: Math.random() * 0.3 + 0.7,
+                metrics: {
+                    taskCompletion: Math.random() * 0.2 + 0.8,
+                    efficiency: Math.random() * 0.2 + 0.7,
+                    responseTime: Math.random() * 2 + 1
+                }
+            };
+        }
+
+        // 显示仿真结果
+        function showSimulationResults() {
+            const results = simulationData.results;
+            showAlert(
+                '仿真完成',
+                `仿真测试已完成，性能评分：${(results.performance * 100).toFixed(1)}%。是否进行模型评估？`,
+                () => navigateToEvaluation()
+            );
+        }
+
+        // 更新仿真状态
+        function updateSimulationStatus(status) {
+            const statusElement = document.getElementById('simulationStatus');
+            switch (status) {
+                case 'running':
+                    statusElement.innerHTML = '<span class="mr-2">●</span>仿真进行中';
+                    statusElement.classList.remove('text-green-400', 'text-red-400');
+                    statusElement.classList.add('text-yellow-400');
+                    break;
+                case 'completed':
+                    statusElement.innerHTML = '<span class="mr-2">●</span>仿真完成';
+                    statusElement.classList.remove('text-yellow-400', 'text-red-400');
+                    statusElement.classList.add('text-green-400');
+                    break;
+                case 'paused':
+                    statusElement.innerHTML = '<span class="mr-2">●</span>仿真已暂停';
+                    statusElement.classList.remove('text-green-400', 'text-red-400');
+                    statusElement.classList.add('text-yellow-400');
+                    break;
+                default:
+                    statusElement.innerHTML = '<span class="mr-2">●</span>仿真未开始';
+                    statusElement.classList.remove('text-green-400', 'text-yellow-400');
+                    statusElement.classList.add('text-red-400');
+            }
+        }
+
+        // 更新进度显示
+        function updateProgress(progress) {
+            // 实现进度更新逻辑
+        }
+    </script>
+</body>
+</html> 

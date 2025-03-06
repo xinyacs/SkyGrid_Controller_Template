@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体强化学习的无人机协同系统 - 模型评估</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .eval-card {
+            @apply bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/10 hover:bg-white/15 transition-all duration-300;
+        }
+        .performance-chart {
+            @apply bg-slate-800/30 rounded-xl p-4 aspect-[16/9] relative overflow-hidden;
+        }
+        .chart-grid {
+            @apply absolute inset-0 grid;
+            grid-template-columns: repeat(24, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+        }
+        .chart-line {
+            @apply absolute h-px bg-slate-700;
+        }
+        .performance-line {
+            @apply absolute h-0.5 bg-gradient-to-r;
+        }
+        .metric-card {
+            @apply bg-slate-800/50 rounded-lg p-4;
+        }
+        .metric-value {
+            @apply text-2xl font-bold;
+        }
+        .metric-label {
+            @apply text-sm text-gray-400;
+        }
+        .comparison-row {
+            @apply flex items-center space-x-4 p-3 rounded-lg bg-slate-800/50;
+        }
+        .progress-bar {
+            @apply h-2 rounded-full bg-slate-700;
+        }
+        .progress-value {
+            @apply h-full rounded-full;
+        }
+        .behavior-item {
+            @apply flex items-center space-x-2 p-2 rounded-lg bg-slate-800/50;
+        }
+        .suggestion-card {
+            @apply bg-slate-800/50 rounded-lg p-4 border-l-4;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <!-- 警告弹窗 -->
+    <div id="alertModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold text-white mb-4" id="alertTitle">警告</h3>
+            <p class="text-gray-300 mb-6" id="alertMessage">警告信息</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeAlert()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                    取消
+                </button>
+                <button id="alertAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导航栏 -->
+    <nav class="bg-slate-800/50 backdrop-blur-md border-b border-white/10">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold text-white">无人机协同系统</h1>
+                    <div class="flex space-x-4">
+                        <a href="./dashboard.html" class="text-blue-300 hover:text-white transition-colors">
+                            返回仪表盘
+                        </a>
+                        <button id="nav-deployment" class="text-blue-300 hover:text-white transition-colors">
+                            部署管理
+                        </button>
+                        <button id="nav-algorithm" class="text-blue-300 hover:text-white transition-colors">
+                            算法开发
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="evaluationStatus" class="text-yellow-400">
+                        <span class="mr-2">●</span>评估进行中
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- 顶部标题 -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-white">模型评估</h1>
+            <p class="text-blue-200">性能评估 · 对比实验 · 行为分析</p>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：模型性能评估和对比实验 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 模型性能评估 -->
+                <div class="eval-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">模型性能评估</h2>
+                        <div class="flex space-x-4">
+                            <select class="bg-slate-800/50 text-white px-3 py-1 rounded-lg text-sm">
+                                <option>DDPG模型</option>
+                                <option>PPO模型</option>
+                                <option>SAC模型</option>
+                            </select>
+                            <select class="bg-slate-800/50 text-white px-3 py-1 rounded-lg text-sm">
+                                <option>最近100轮</option>
+                                <option>最近500轮</option>
+                                <option>全部轮次</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="performance-chart">
+                        <div class="chart-grid">
+                            <!-- 网格线 -->
+                            <div class="chart-line" style="top: 20%; left: 0; right: 0;"></div>
+                            <div class="chart-line" style="top: 40%; left: 0; right: 0;"></div>
+                            <div class="chart-line" style="top: 60%; left: 0; right: 0;"></div>
+                            <div class="chart-line" style="top: 80%; left: 0; right: 0;"></div>
+                            <!-- 性能曲线 -->
+                            <div class="performance-line from-blue-500 to-green-500" style="bottom: 30%; left: 10%; right: 20%; transform: skew(10deg);"></div>
+                        </div>
+                        <!-- 坐标轴标签 -->
+                        <div class="absolute left-2 top-0 bottom-0 flex flex-col justify-between text-sm text-gray-400">
+                            <span>1.0</span>
+                            <span>0.8</span>
+                            <span>0.6</span>
+                            <span>0.4</span>
+                            <span>0.2</span>
+                            <span>0.0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 对比实验管理 -->
+                <div class="eval-card">
+                    <h2 class="text-xl font-bold text-white mb-6">对比实验管理</h2>
+                    <div class="space-y-4">
+                        <div class="comparison-row">
+                            <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <span class="text-white w-24">DDPG模型</span>
+                            <div class="flex-1">
+                                <div class="progress-bar">
+                                    <div class="progress-value bg-blue-500" style="width: 85%"></div>
+                                </div>
+                            </div>
+                            <span class="text-blue-400">85%</span>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span class="text-white w-24">PPO模型</span>
+                            <div class="flex-1">
+                                <div class="progress-bar">
+                                    <div class="progress-value bg-green-500" style="width: 92%"></div>
+                                </div>
+                            </div>
+                            <span class="text-green-400">92%</span>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                            <span class="text-white w-24">SAC模型</span>
+                            <div class="flex-1">
+                                <div class="progress-bar">
+                                    <div class="progress-value bg-yellow-500" style="width: 78%"></div>
+                                </div>
+                            </div>
+                            <span class="text-yellow-400">78%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：评估指标和行为分析 -->
+            <div class="space-y-6">
+                <!-- 评估指标展示 -->
+                <div class="eval-card">
+                    <h2 class="text-xl font-bold text-white mb-6">评估指标</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="metric-card">
+                            <div class="metric-value text-blue-400">92.5%</div>
+                            <div class="metric-label">收敛速度</div>
+                            <div class="text-xs text-green-400">↑ 5.2%</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value text-green-400">0.89</div>
+                            <div class="metric-label">策略稳定性</div>
+                            <div class="text-xs text-green-400">↑ 0.03</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value text-purple-400">95%</div>
+                            <div class="metric-label">任务完成率</div>
+                            <div class="text-xs text-green-400">↑ 3.5%</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value text-yellow-400">87%</div>
+                            <div class="metric-label">泛化能力</div>
+                            <div class="text-xs text-red-400">↓ 1.2%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 模型行为分析 -->
+                <div class="eval-card">
+                    <h2 class="text-xl font-bold text-white mb-6">行为分析</h2>
+                    <div class="space-y-4">
+                        <div class="behavior-item">
+                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span class="text-white">协同决策</span>
+                            <span class="text-green-400 ml-auto">优秀</span>
+                        </div>
+                        <div class="behavior-item">
+                            <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <span class="text-white">路径规划</span>
+                            <span class="text-blue-400 ml-auto">良好</span>
+                        </div>
+                        <div class="behavior-item">
+                            <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                            <span class="text-white">避障能力</span>
+                            <span class="text-yellow-400 ml-auto">中等</span>
+                        </div>
+                        <div class="behavior-item">
+                            <div class="w-3 h-3 bg-red-500 rounded-full"></div>
+                            <span class="text-white">环境适应</span>
+                            <span class="text-red-400 ml-auto">待改进</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 改进建议 -->
+                <div class="eval-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">改进建议</h2>
+                        <button class="px-4 py-2 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                            生成报告
+                        </button>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="suggestion-card border-green-500">
+                            <div class="text-green-400 font-bold">优化方向</div>
+                            <p class="text-sm text-gray-400 mt-1">增加环境多样性训练，提升模型泛化能力</p>
+                        </div>
+                        <div class="suggestion-card border-yellow-500">
+                            <div class="text-yellow-400 font-bold">参数调整</div>
+                            <p class="text-sm text-gray-400 mt-1">适当降低学习率，提高训练稳定性</p>
+                        </div>
+                        <div class="suggestion-card border-red-500">
+                            <div class="text-red-400 font-bold">架构改进</div>
+                            <p class="text-sm text-gray-400 mt-1">考虑引入注意力机制，增强环境感知能力</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部评估概要 -->
+        <div class="mt-8 eval-card">
+            <div class="flex justify-between items-center">
+                <div class="flex space-x-8">
+                    <div>
+                        <div class="text-sm text-gray-400">评估模型</div>
+                        <div class="text-white">PPO-v2.3.0</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">训练轮次</div>
+                        <div class="text-white">10,000</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">评估时长</div>
+                        <div class="text-white">48小时</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">最后更新</div>
+                        <div class="text-white">2024-03-06 15:30</div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span class="text-green-400">评估完成</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let evaluationData = {
+            modelId: null,
+            evaluationStatus: 'in_progress',
+            metrics: {},
+            thresholds: {
+                convergenceSpeed: 90,
+                policyStability: 0.85,
+                taskCompletion: 90,
+                generalization: 85
+            },
+            results: null
+        };
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            startModelEvaluation();
+            checkEvaluationProgress();
+        });
+
+        // 初始化事件监听
+        function initializeEventListeners() {
+            // 导航事件
+            document.getElementById('nav-deployment').addEventListener('click', () => {
+                if (!isEvaluationPassed()) {
+                    showAlert('评估未通过', '当前模型评估未通过，无法进行部署。请先完成必要的改进。');
+                    return;
+                }
+                navigateToDeployment();
+            });
+
+            document.getElementById('nav-algorithm').addEventListener('click', () => {
+                if (evaluationData.evaluationStatus !== 'completed') {
+                    showAlert('评估未完成', '请等待评估完成后再进行操作。');
+                    return;
+                }
+                navigateToAlgorithm();
+            });
+
+            // 模型选择事件
+            document.querySelectorAll('select').forEach(select => {
+                select.addEventListener('change', () => {
+                    updateEvaluationView();
+                });
+            });
+
+            // 生成报告按钮
+            document.querySelector('button:contains("生成报告")').addEventListener('click', generateReport);
+        }
+
+        // 显示警告弹窗
+        function showAlert(title, message, actionCallback = null) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').style.display = 'flex';
+            
+            const actionButton = document.getElementById('alertAction');
+            if (actionCallback) {
+                actionButton.style.display = 'block';
+                actionButton.onclick = actionCallback;
+            } else {
+                actionButton.style.display = 'none';
+            }
+        }
+
+        // 关闭警告弹窗
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        // 导航函数
+        function navigateTo(path, params = {}) {
+            const queryString = Object.keys(params)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+            window.location.href = queryString ? `${path}?${queryString}` : path;
+        }
+
+        // 导航到部署管理页面
+        function navigateToDeployment() {
+            const results = evaluationData.results;
+            if (results.performance.some(p => p.score < p.threshold)) {
+                showAlert(
+                    '性能警告',
+                    '部分性能指标未达到最优水平，是否仍要继续部署？',
+                    () => navigateTo('./deployment.html', {
+                        modelId: evaluationData.modelId,
+                        evaluationId: results.id
+                    })
+                );
+            } else {
+                navigateTo('./deployment.html', {
+                    modelId: evaluationData.modelId,
+                    evaluationId: results.id
+                });
+            }
+        }
+
+        // 导航到算法开发页面
+        function navigateToAlgorithm() {
+            const results = evaluationData.results;
+            if (results.status === 'failed') {
+                showAlert(
+                    '评估未通过',
+                    '模型评估未通过，建议返回算法开发页面进行改进。是否继续？',
+                    () => navigateTo('./algorithm-development.html', {
+                        modelId: evaluationData.modelId,
+                        evaluationId: results.id,
+                        improvements: results.improvements.join(',')
+                    })
+                );
+            } else {
+                navigateTo('./algorithm-development.html', {
+                    modelId: evaluationData.modelId,
+                    evaluationId: results.id
+                });
+            }
+        }
+
+        // 检查评估是否通过
+        function isEvaluationPassed() {
+            return evaluationData.results && 
+                   evaluationData.results.status === 'passed' &&
+                   evaluationData.evaluationStatus === 'completed';
+        }
+
+        // 开始模型评估
+        function startModelEvaluation() {
+            // 获取URL参数
+            const urlParams = new URLSearchParams(window.location.search);
+            evaluationData.modelId = urlParams.get('modelId');
+
+            // 更新评估状态
+            updateEvaluationStatus('in_progress');
+
+            // 模拟评估过程
+            setTimeout(() => {
+                evaluationData.evaluationStatus = 'completed';
+                evaluationData.results = generateEvaluationResults();
+                updateEvaluationStatus('completed');
+                showEvaluationResults();
+            }, 5000);
+        }
+
+        // 检查评估进度
+        function checkEvaluationProgress() {
+            const progressInterval = setInterval(() => {
+                if (evaluationData.evaluationStatus === 'completed') {
+                    clearInterval(progressInterval);
+                    return;
+                }
+
+                // 更新进度显示
+                updateProgressDisplay();
+            }, 1000);
+        }
+
+        // 生成评估结果
+        function generateEvaluationResults() {
+            const performance = [
+                {
+                    metric: 'convergenceSpeed',
+                    score: 92.5,
+                    threshold: evaluationData.thresholds.convergenceSpeed,
+                    status: 'passed'
+                },
+                {
+                    metric: 'policyStability',
+                    score: 0.89,
+                    threshold: evaluationData.thresholds.policyStability,
+                    status: 'passed'
+                },
+                {
+                    metric: 'taskCompletion',
+                    score: 95,
+                    threshold: evaluationData.thresholds.taskCompletion,
+                    status: 'passed'
+                },
+                {
+                    metric: 'generalization',
+                    score: 87,
+                    threshold: evaluationData.thresholds.generalization,
+                    status: 'warning'
+                }
+            ];
+
+            const status = performance.every(p => p.status === 'passed') ? 'passed' : 'failed';
+            const improvements = status === 'failed' ? [
+                'increase_training_diversity',
+                'optimize_network_architecture',
+                'adjust_learning_rate'
+            ] : [];
+
+            return {
+                id: Date.now().toString(),
+                status,
+                performance,
+                improvements,
+                timestamp: new Date()
+            };
+        }
+
+        // 更新评估状态
+        function updateEvaluationStatus(status) {
+            const statusElement = document.getElementById('evaluationStatus');
+            if (status === 'completed') {
+                statusElement.innerHTML = '<span class="mr-2">●</span>评估完成';
+                statusElement.classList.remove('text-yellow-400');
+                statusElement.classList.add('text-green-400');
+            } else {
+                statusElement.innerHTML = '<span class="mr-2">●</span>评估进行中';
+                statusElement.classList.remove('text-green-400');
+                statusElement.classList.add('text-yellow-400');
+            }
+        }
+
+        // 显示评估结果
+        function showEvaluationResults() {
+            const results = evaluationData.results;
+            if (results.status === 'failed') {
+                showAlert(
+                    '评估结果',
+                    '模型评估未通过，建议进行必要的改进。是否查看详细建议？',
+                    () => navigateToAlgorithm()
+                );
+            } else {
+                showAlert(
+                    '评估通过',
+                    '模型评估通过，可以进行部署。是否立即进入部署管理？',
+                    () => navigateToDeployment()
+                );
+            }
+        }
+
+        // 更新进度显示
+        function updateProgressDisplay() {
+            // 更新进度条和状态显示
+            updateCharts();
+            updateMetrics();
+            updateBehaviorAnalysis();
+        }
+
+        // 生成评估报告
+        function generateReport() {
+            if (evaluationData.evaluationStatus !== 'completed') {
+                showAlert('无法生成报告', '请等待评估完成后再生成报告。');
+                return;
+            }
+
+            showAlert(
+                '生成报告',
+                '是否包含改进建议在报告中？',
+                () => {
+                    // 模拟报告生成过程
+                    setTimeout(() => {
+                        showAlert('报告生成成功', '评估报告已生成完成。');
+                    }, 1000);
+                }
+            );
+        }
+
+        // 更新图表
+        function updateCharts() {
+            // 实现图表更新逻辑
+        }
+
+        // 更新指标
+        function updateMetrics() {
+            // 实现指标更新逻辑
+        }
+
+        // 更新行为分析
+        function updateBehaviorAnalysis() {
+            // 实现行为分析更新逻辑
+        }
+    </script>
+</body>
+</html> 

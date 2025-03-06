@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体强化学习的无人机协同系统 - 应急处理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .emergency-card {
+            @apply bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/10 hover:bg-white/15 transition-all duration-300;
+        }
+        .alert-badge {
+            @apply px-3 py-1 rounded-full text-sm font-medium;
+        }
+        .alert-badge.critical {
+            @apply bg-red-500/20 text-red-400 border border-red-500/30;
+        }
+        .alert-badge.warning {
+            @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
+        }
+        .alert-badge.normal {
+            @apply bg-green-500/20 text-green-400 border border-green-500/30;
+        }
+        .control-btn {
+            @apply px-4 py-2 rounded-lg transition-all duration-300;
+        }
+        .control-btn.emergency {
+            @apply bg-red-600/30 text-red-300 hover:bg-red-600/40 border border-red-500/30;
+        }
+        .control-btn.warning {
+            @apply bg-yellow-600/30 text-yellow-300 hover:bg-yellow-600/40 border border-yellow-500/30;
+        }
+        .control-btn.normal {
+            @apply bg-blue-600/30 text-blue-300 hover:bg-blue-600/40 border border-blue-500/30;
+        }
+        .status-indicator {
+            @apply w-3 h-3 rounded-full;
+        }
+        .diagnostic-item {
+            @apply bg-slate-800/50 rounded-lg p-4 border border-slate-700;
+        }
+        .report-section {
+            @apply bg-slate-800/50 rounded-lg p-4;
+        }
+        .report-input {
+            @apply bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2 text-white w-full focus:outline-none focus:border-blue-500;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-red-900 to-slate-900">
+    <!-- 警告弹窗 -->
+    <div id="alertModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold text-white mb-4" id="alertTitle">警告</h3>
+            <p class="text-gray-300 mb-6" id="alertMessage">警告信息</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeAlert()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                    取消
+                </button>
+                <button id="alertAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导航栏 -->
+    <nav class="bg-slate-800/50 backdrop-blur-md border-b border-white/10">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold text-white">无人机协同系统</h1>
+                    <div class="flex space-x-4">
+                        <button id="nav-monitoring" class="text-blue-300 hover:text-white transition-colors">
+                            返回监控
+                        </button>
+                        <button id="nav-planning" class="text-blue-300 hover:text-white transition-colors">
+                            重新规划
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="emergencyStatus" class="text-red-400">
+                        <span class="mr-2">●</span>紧急状态
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- 顶部标题和紧急状态 -->
+        <div class="mb-8 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-white">应急处理中心</h1>
+                <p class="text-red-200">预案启动 · 手动控制 · 故障诊断 · 事故报告</p>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span class="status-indicator bg-red-500 animate-pulse"></span>
+                <span class="text-red-400 font-semibold">紧急状态</span>
+            </div>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：应急预案和手动控制 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 应急预案启动 -->
+                <div class="emergency-card">
+                    <h2 class="text-xl font-bold text-white mb-6">应急预案启动</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div class="diagnostic-item">
+                                <div class="flex justify-between items-center mb-4">
+                                    <span class="text-white">预案类型</span>
+                                    <span class="alert-badge critical">紧急迫降</span>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-400">预案编号</span>
+                                        <span class="text-white">EP-2024-0315</span>
+                                    </div>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-400">影响范围</span>
+                                        <span class="text-white">全部无人机</span>
+                                    </div>
+                                </div>
+                                <button class="control-btn emergency w-full mt-4">
+                                    立即启动预案
+                                </button>
+                            </div>
+                            <div class="diagnostic-item">
+                                <div class="flex justify-between items-center mb-4">
+                                    <span class="text-white">备用预案</span>
+                                    <span class="alert-badge warning">返航模式</span>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-400">预案编号</span>
+                                        <span class="text-white">EP-2024-0314</span>
+                                    </div>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-400">影响范围</span>
+                                        <span class="text-white">指定无人机</span>
+                                    </div>
+                                </div>
+                                <button class="control-btn warning w-full mt-4">
+                                    启动备用预案
+                                </button>
+                            </div>
+                        </div>
+                        <div class="diagnostic-item h-full">
+                            <h3 class="text-lg font-semibold text-white mb-4">预案执行进度</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <div class="flex justify-between text-sm mb-2">
+                                        <span class="text-white">无人机状态确认</span>
+                                        <span class="text-green-400">100%</span>
+                                    </div>
+                                    <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                        <div class="h-full bg-green-500 rounded-full" style="width: 100%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-2">
+                                        <span class="text-white">安全区域计算</span>
+                                        <span class="text-blue-400">80%</span>
+                                    </div>
+                                    <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                        <div class="h-full bg-blue-500 rounded-full" style="width: 80%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-2">
+                                        <span class="text-white">路径规划</span>
+                                        <span class="text-yellow-400">45%</span>
+                                    </div>
+                                    <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                        <div class="h-full bg-yellow-500 rounded-full" style="width: 45%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 手动控制接管 -->
+                <div class="emergency-card">
+                    <h2 class="text-xl font-bold text-white mb-6">手动控制接管</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="diagnostic-item">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <span class="status-indicator bg-red-500"></span>
+                                <span class="text-white">无人机 #001</span>
+                            </div>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">电量</span>
+                                    <span class="text-red-400">15%</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">高度</span>
+                                    <span class="text-white">120m</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">速度</span>
+                                    <span class="text-white">5m/s</span>
+                                </div>
+                            </div>
+                            <button class="control-btn emergency w-full mt-4">
+                                接管控制
+                            </button>
+                        </div>
+                        <div class="diagnostic-item">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <span class="status-indicator bg-yellow-500"></span>
+                                <span class="text-white">无人机 #002</span>
+                            </div>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">电量</span>
+                                    <span class="text-yellow-400">35%</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">高度</span>
+                                    <span class="text-white">150m</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">速度</span>
+                                    <span class="text-white">8m/s</span>
+                                </div>
+                            </div>
+                            <button class="control-btn warning w-full mt-4">
+                                接管控制
+                            </button>
+                        </div>
+                        <div class="diagnostic-item">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <span class="status-indicator bg-green-500"></span>
+                                <span class="text-white">无人机 #003</span>
+                            </div>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">电量</span>
+                                    <span class="text-green-400">85%</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">高度</span>
+                                    <span class="text-white">180m</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">速度</span>
+                                    <span class="text-white">10m/s</span>
+                                </div>
+                            </div>
+                            <button class="control-btn normal w-full mt-4">
+                                接管控制
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：故障诊断和事故报告 -->
+            <div class="space-y-6">
+                <!-- 故障诊断 -->
+                <div class="emergency-card">
+                    <h2 class="text-xl font-bold text-white mb-6">故障诊断</h2>
+                    <div class="space-y-4">
+                        <div class="diagnostic-item">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-white">电池系统</span>
+                                <span class="alert-badge critical">严重故障</span>
+                            </div>
+                            <p class="text-sm text-gray-400">电池电量过低，需要紧急处理</p>
+                            <div class="mt-2 text-xs text-red-400">
+                                故障码: BAT-001
+                            </div>
+                        </div>
+                        <div class="diagnostic-item">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-white">通信系统</span>
+                                <span class="alert-badge warning">信号不稳定</span>
+                            </div>
+                            <p class="text-sm text-gray-400">信号强度波动，建议检查天线</p>
+                            <div class="mt-2 text-xs text-yellow-400">
+                                故障码: COM-003
+                            </div>
+                        </div>
+                        <div class="diagnostic-item">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-white">导航系统</span>
+                                <span class="alert-badge normal">正常运行</span>
+                            </div>
+                            <p class="text-sm text-gray-400">GPS信号良好，定位准确</p>
+                            <div class="mt-2 text-xs text-green-400">
+                                状态正常
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 事故报告 -->
+                <div class="emergency-card">
+                    <h2 class="text-xl font-bold text-white mb-6">事故报告</h2>
+                    <div class="space-y-4">
+                        <div class="report-section">
+                            <label class="block text-white mb-2">事故类型</label>
+                            <select class="report-input">
+                                <option>电池故障</option>
+                                <option>通信中断</option>
+                                <option>导航异常</option>
+                                <option>其他故障</option>
+                            </select>
+                        </div>
+                        <div class="report-section">
+                            <label class="block text-white mb-2">影响范围</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="flex items-center space-x-2">
+                                    <input type="checkbox" class="form-checkbox">
+                                    <span class="text-gray-400">无人机 #001</span>
+                                </label>
+                                <label class="flex items-center space-x-2">
+                                    <input type="checkbox" class="form-checkbox">
+                                    <span class="text-gray-400">无人机 #002</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="report-section">
+                            <label class="block text-white mb-2">事故描述</label>
+                            <textarea class="report-input h-24" placeholder="请详细描述事故发生的过程..."></textarea>
+                        </div>
+                        <button class="control-btn normal w-full">
+                            提交报告
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部状态栏 -->
+        <div class="mt-8 emergency-card">
+            <div class="flex justify-between items-center">
+                <div class="flex space-x-8">
+                    <div>
+                        <div class="text-sm text-gray-400">当前状态</div>
+                        <div class="text-red-400">紧急处理中</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">响应时间</div>
+                        <div class="text-white">00:02:45</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">影响设备</div>
+                        <div class="text-white">3台</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">系统负载</div>
+                        <div class="text-yellow-400">75%</div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button class="control-btn emergency">
+                        全局紧急停止
+                    </button>
+                    <button class="control-btn warning">
+                        一键返航
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let emergencyData = {
+            emergencyId: null,
+            status: 'active', // active, handling, resolved
+            startTime: null,
+            affectedDrones: [],
+            currentPlan: null,
+            issues: [],
+            reports: []
+        };
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            loadEmergencyData();
+        });
+
+        // 初始化事件监听
+        function initializeEventListeners() {
+            // 导航事件
+            document.getElementById('nav-monitoring').addEventListener('click', () => {
+                if (!isEmergencyResolved()) {
+                    showAlert('应急未解决', '当前仍有未处理的紧急情况，请先完成处理。');
+                    return;
+                }
+                navigateToMonitoring();
+            });
+
+            document.getElementById('nav-planning').addEventListener('click', () => {
+                if (!isEmergencyHandled()) {
+                    showAlert('应急处理中', '请先完成应急处理再进行任务规划。');
+                    return;
+                }
+                navigateToPlanning();
+            });
+
+            // 预案按钮
+            document.querySelectorAll('.control-btn.emergency').forEach(button => {
+                button.addEventListener('click', () => {
+                    showAlert(
+                        '启动预案',
+                        '确定要启动紧急预案吗？这将影响所有无人机。',
+                        activateEmergencyPlan
+                    );
+                });
+            });
+
+            // 接管控制按钮
+            document.querySelectorAll('.diagnostic-item button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const droneElement = e.target.closest('.diagnostic-item');
+                    const droneId = droneElement.querySelector('.text-white').textContent;
+                    takeDroneControl(droneId);
+                });
+            });
+
+            // 报告提交按钮
+            document.querySelector('button:contains("提交报告")').addEventListener('click', submitReport);
+        }
+
+        // 显示警告弹窗
+        function showAlert(title, message, actionCallback = null) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').style.display = 'flex';
+            
+            const actionButton = document.getElementById('alertAction');
+            if (actionCallback) {
+                actionButton.style.display = 'block';
+                actionButton.onclick = actionCallback;
+            } else {
+                actionButton.style.display = 'none';
+            }
+        }
+
+        // 关闭警告弹窗
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        // 导航函数
+        function navigateTo(path, params = {}) {
+            const queryString = Object.keys(params)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+            window.location.href = queryString ? `${path}?${queryString}` : path;
+        }
+
+        // 导航到实时监控
+        function navigateToMonitoring() {
+            const report = generateEmergencyReport();
+            if (report.severity === 'high') {
+                showAlert(
+                    '高风险警告',
+                    '当前系统仍存在高风险隐患，建议进行全面检查。是否继续？',
+                    () => navigateTo('./real-time-monitoring.html', {
+                        emergencyId: emergencyData.emergencyId,
+                        report: JSON.stringify(report)
+                    })
+                );
+            } else {
+                navigateTo('./real-time-monitoring.html', {
+                    emergencyId: emergencyData.emergencyId,
+                    report: JSON.stringify(report)
+                });
+            }
+        }
+
+        // 导航到任务规划
+        function navigateToPlanning() {
+            const status = emergencyData.status;
+            if (status === 'handling') {
+                showAlert(
+                    '处理未完成',
+                    '应急处理尚未完成，建议完成所有处理步骤后再规划任务。是否继续？',
+                    () => navigateTo('./mission-planning.html', {
+                        emergencyId: emergencyData.emergencyId,
+                        status: status
+                    })
+                );
+            } else {
+                navigateTo('./mission-planning.html', {
+                    emergencyId: emergencyData.emergencyId,
+                    status: status
+                });
+            }
+        }
+
+        // 检查应急是否解决
+        function isEmergencyResolved() {
+            return emergencyData.status === 'resolved';
+        }
+
+        // 检查应急是否处理
+        function isEmergencyHandled() {
+            return emergencyData.status === 'handling' || 
+                   emergencyData.status === 'resolved';
+        }
+
+        // 加载应急数据
+        function loadEmergencyData() {
+            // 获取URL参数
+            const urlParams = new URLSearchParams(window.location.search);
+            emergencyData.emergencyId = urlParams.get('emergencyId');
+            emergencyData.startTime = new Date();
+
+            // 更新应急状态
+            updateEmergencyStatus('active');
+        }
+
+        // 激活应急预案
+        function activateEmergencyPlan() {
+            emergencyData.status = 'handling';
+            emergencyData.currentPlan = {
+                id: `EP-${Date.now()}`,
+                type: '紧急迫降',
+                affectedDrones: emergencyData.affectedDrones,
+                steps: generatePlanSteps()
+            };
+            updateEmergencyStatus('handling');
+            showAlert('预案已启动', '紧急预案已启动，系统正在执行预定处理流程。');
+        }
+
+        // 接管无人机控制
+        function takeDroneControl(droneId) {
+            const drone = emergencyData.affectedDrones.find(d => d.id === droneId);
+            if (!drone) {
+                showAlert('操作失败', '无法接管指定无人机的控制权。');
+                return;
+            }
+            showAlert(
+                '接管控制',
+                `确定要接管 ${droneId} 的控制权吗？`,
+                () => {
+                    drone.status = 'manual_control';
+                    showAlert('接管成功', `已成功接管 ${droneId} 的控制权。`);
+                }
+            );
+        }
+
+        // 提交报告
+        function submitReport() {
+            const reportForm = document.querySelector('.report-section');
+            if (!validateReport(reportForm)) {
+                showAlert('表单不完整', '请填写完整的事故报告信息。');
+                return;
+            }
+            const report = generateReport(reportForm);
+            emergencyData.reports.push(report);
+            showAlert('报告提交成功', '事故报告已成功提交并记录。');
+        }
+
+        // 生成应急报告
+        function generateEmergencyReport() {
+            return {
+                id: emergencyData.emergencyId,
+                startTime: emergencyData.startTime,
+                endTime: new Date(),
+                affectedDrones: emergencyData.affectedDrones.length,
+                severity: calculateSeverity(),
+                issues: emergencyData.issues,
+                resolution: emergencyData.currentPlan
+            };
+        }
+
+        // 生成预案步骤
+        function generatePlanSteps() {
+            return [
+                { id: 1, name: '状态确认', status: 'completed', progress: 100 },
+                { id: 2, name: '安全区域计算', status: 'in_progress', progress: 80 },
+                { id: 3, name: '路径规划', status: 'pending', progress: 45 }
+            ];
+        }
+
+        // 验证报告
+        function validateReport(form) {
+            // 实现报告验证逻辑
+            return true;
+        }
+
+        // 生成报告
+        function generateReport(form) {
+            return {
+                id: Date.now().toString(),
+                type: form.querySelector('select').value,
+                description: form.querySelector('textarea').value,
+                timestamp: new Date()
+            };
+        }
+
+        // 计算严重程度
+        function calculateSeverity() {
+            const criticalIssues = emergencyData.issues.filter(i => i.level === 'critical');
+            return criticalIssues.length > 0 ? 'high' : 'medium';
+        }
+
+        // 更新应急状态
+        function updateEmergencyStatus(status) {
+            const statusElement = document.getElementById('emergencyStatus');
+            switch (status) {
+                case 'handling':
+                    statusElement.innerHTML = '<span class="mr-2">●</span>处理中';
+                    statusElement.classList.remove('text-red-400');
+                    statusElement.classList.add('text-yellow-400');
+                    break;
+                case 'resolved':
+                    statusElement.innerHTML = '<span class="mr-2">●</span>已解决';
+                    statusElement.classList.remove('text-red-400', 'text-yellow-400');
+                    statusElement.classList.add('text-green-400');
+                    break;
+                default:
+                    statusElement.innerHTML = '<span class="mr-2">●</span>紧急状态';
+                    statusElement.classList.remove('text-yellow-400', 'text-green-400');
+                    statusElement.classList.add('text-red-400');
+            }
+        }
+    </script>
+</body>
+</html>
+ 

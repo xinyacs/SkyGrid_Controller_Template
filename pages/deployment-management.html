@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体强化学习的无人机协同系统 - 部署管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .deploy-card {
+            @apply bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/10 hover:bg-white/15 transition-all duration-300;
+        }
+        .status-badge {
+            @apply px-3 py-1 rounded-full text-sm font-medium;
+        }
+        .status-badge.running {
+            @apply bg-green-500/20 text-green-400 border border-green-500/30;
+        }
+        .status-badge.pending {
+            @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
+        }
+        .status-badge.failed {
+            @apply bg-red-500/20 text-red-400 border border-red-500/30;
+        }
+        .resource-meter {
+            @apply h-2 rounded-full bg-slate-700 overflow-hidden;
+        }
+        .resource-value {
+            @apply h-full rounded-full transition-all duration-500;
+        }
+        .version-item {
+            @apply flex items-center space-x-4 p-3 rounded-lg bg-slate-800/50;
+        }
+        .log-container {
+            @apply bg-slate-800/50 rounded-lg p-4 font-mono text-sm h-48 overflow-y-auto;
+        }
+        .log-line {
+            @apply mb-2 last:mb-0;
+        }
+        .log-line.info {
+            @apply text-blue-400;
+        }
+        .log-line.warning {
+            @apply text-yellow-400;
+        }
+        .log-line.error {
+            @apply text-red-400;
+        }
+        .config-input {
+            @apply bg-slate-800/50 border border-blue-500/30 rounded-lg px-4 py-2 text-white w-full focus:outline-none focus:border-blue-500;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <!-- 警告弹窗 -->
+    <div id="alertModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold text-white mb-4" id="alertTitle">警告</h3>
+            <p class="text-gray-300 mb-6" id="alertMessage">警告信息</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeAlert()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                    取消
+                </button>
+                <button id="alertAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导航栏 -->
+    <nav class="bg-slate-800/50 backdrop-blur-md border-b border-white/10">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold text-white">无人机协同系统</h1>
+                    <div class="flex space-x-4">
+                        <a href="./dashboard.html" class="text-blue-300 hover:text-white transition-colors">
+                            返回仪表盘
+                        </a>
+                        <button id="nav-monitoring" class="text-blue-300 hover:text-white transition-colors">
+                            实时监控
+                        </button>
+                        <button id="nav-emergency" class="text-blue-300 hover:text-white transition-colors">
+                            应急处理
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="deploymentStatus" class="text-yellow-400">
+                        <span class="mr-2">●</span>部署进行中
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- 顶部标题 -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-white">部署管理</h1>
+            <p class="text-blue-200">配置管理 · 状态监控 · 版本控制</p>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：模型部署配置和状态监控 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 模型部署配置 -->
+                <div class="deploy-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">模型部署配置</h2>
+                        <div class="flex space-x-4">
+                            <select class="bg-slate-800/50 text-white px-3 py-1 rounded-lg text-sm">
+                                <option>生产环境</option>
+                                <option>测试环境</option>
+                                <option>开发环境</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">模型版本</label>
+                            <select class="config-input">
+                                <option>PPO-v2.3.0</option>
+                                <option>PPO-v2.2.0</option>
+                                <option>DDPG-v1.5.0</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">部署模式</label>
+                            <select class="config-input">
+                                <option>蓝绿部署</option>
+                                <option>金丝雀发布</option>
+                                <option>滚动更新</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">计算资源</label>
+                            <select class="config-input">
+                                <option>GPU集群</option>
+                                <option>CPU集群</option>
+                                <option>混合计算</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">实例数量</label>
+                            <input type="number" value="3" class="config-input">
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end space-x-4">
+                        <button class="px-6 py-2 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                            保存配置
+                        </button>
+                        <button class="px-6 py-2 bg-green-600/30 text-green-300 rounded-lg hover:bg-green-600/40 border border-green-500/30">
+                            开始部署
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 部署状态监控 -->
+                <div class="deploy-card">
+                    <h2 class="text-xl font-bold text-white mb-6">部署状态监控</h2>
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-slate-800/50 rounded-lg p-4">
+                                <div class="text-sm text-gray-400">CPU使用率</div>
+                                <div class="text-2xl font-bold text-white mb-2">78%</div>
+                                <div class="resource-meter">
+                                    <div class="resource-value bg-blue-500" style="width: 78%"></div>
+                                </div>
+                            </div>
+                            <div class="bg-slate-800/50 rounded-lg p-4">
+                                <div class="text-sm text-gray-400">内存使用率</div>
+                                <div class="text-2xl font-bold text-white mb-2">65%</div>
+                                <div class="resource-meter">
+                                    <div class="resource-value bg-green-500" style="width: 65%"></div>
+                                </div>
+                            </div>
+                            <div class="bg-slate-800/50 rounded-lg p-4">
+                                <div class="text-sm text-gray-400">GPU使用率</div>
+                                <div class="text-2xl font-bold text-white mb-2">92%</div>
+                                <div class="resource-meter">
+                                    <div class="resource-value bg-purple-500" style="width: 92%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="bg-slate-800/50 rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-white">实例-001</span>
+                                    <span class="status-badge running">运行中</span>
+                                </div>
+                                <div class="text-sm text-gray-400">正常运行时间: 48小时</div>
+                            </div>
+                            <div class="bg-slate-800/50 rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-white">实例-002</span>
+                                    <span class="status-badge pending">部署中</span>
+                                </div>
+                                <div class="text-sm text-gray-400">部署进度: 75%</div>
+                            </div>
+                            <div class="bg-slate-800/50 rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-white">实例-003</span>
+                                    <span class="status-badge failed">异常</span>
+                                </div>
+                                <div class="text-sm text-gray-400">内存溢出错误</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：版本管理和部署日志 -->
+            <div class="space-y-6">
+                <!-- 版本管理 -->
+                <div class="deploy-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">版本管理</h2>
+                        <button class="px-4 py-2 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                            创建版本
+                        </button>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="version-item">
+                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <div class="flex-1">
+                                <div class="text-white">PPO-v2.3.0</div>
+                                <div class="text-sm text-gray-400">当前版本</div>
+                            </div>
+                            <button class="px-3 py-1 bg-red-600/30 text-red-300 rounded-lg hover:bg-red-600/40 border border-red-500/30">
+                                回滚
+                            </button>
+                        </div>
+                        <div class="version-item">
+                            <div class="w-3 h-3 bg-gray-500 rounded-full"></div>
+                            <div class="flex-1">
+                                <div class="text-white">PPO-v2.2.0</div>
+                                <div class="text-sm text-gray-400">上一版本</div>
+                            </div>
+                            <button class="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                                部署
+                            </button>
+                        </div>
+                        <div class="version-item">
+                            <div class="w-3 h-3 bg-gray-500 rounded-full"></div>
+                            <div class="flex-1">
+                                <div class="text-white">DDPG-v1.5.0</div>
+                                <div class="text-sm text-gray-400">历史版本</div>
+                            </div>
+                            <button class="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                                部署
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 部署日志 -->
+                <div class="deploy-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">部署日志</h2>
+                        <select class="bg-slate-800/50 text-white px-3 py-1 rounded-lg text-sm">
+                            <option>全部日志</option>
+                            <option>错误日志</option>
+                            <option>警告日志</option>
+                        </select>
+                    </div>
+                    <div class="log-container">
+                        <div class="log-line info">[INFO] 2024-03-06 15:30:00 开始部署 PPO-v2.3.0</div>
+                        <div class="log-line info">[INFO] 2024-03-06 15:30:05 配置验证通过</div>
+                        <div class="log-line warning">[WARN] 2024-03-06 15:30:10 GPU内存使用率超过90%</div>
+                        <div class="log-line info">[INFO] 2024-03-06 15:30:15 实例-001部署完成</div>
+                        <div class="log-line error">[ERROR] 2024-03-06 15:30:20 实例-003内存溢出</div>
+                        <div class="log-line info">[INFO] 2024-03-06 15:30:25 实例-002部署进行中</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部状态栏 -->
+        <div class="mt-8 deploy-card">
+            <div class="flex justify-between items-center">
+                <div class="flex space-x-8">
+                    <div>
+                        <div class="text-sm text-gray-400">当前环境</div>
+                        <div class="text-white">生产环境</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">运行实例</div>
+                        <div class="text-white">3/3</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">部署状态</div>
+                        <div class="text-yellow-400">部署中</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400">最后部署</div>
+                        <div class="text-white">10分钟前</div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+                    <span class="text-yellow-400">部署进行中</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let deploymentData = {
+            modelId: null,
+            deploymentId: null,
+            status: 'in_progress',
+            instances: [],
+            resources: {
+                cpu: 0,
+                memory: 0,
+                gpu: 0
+            },
+            errors: [],
+            logs: []
+        };
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            startDeployment();
+            monitorDeployment();
+        });
+
+        // 初始化事件监听
+        function initializeEventListeners() {
+            // 导航事件
+            document.getElementById('nav-monitoring').addEventListener('click', () => {
+                if (!isDeploymentComplete()) {
+                    showAlert('部署未完成', '请等待部署完成后再进行监控。');
+                    return;
+                }
+                navigateToMonitoring();
+            });
+
+            document.getElementById('nav-emergency').addEventListener('click', () => {
+                if (!hasDeploymentIssues()) {
+                    showAlert('无异常情况', '当前部署正常，无需进行应急处理。');
+                    return;
+                }
+                navigateToEmergency();
+            });
+
+            // 部署按钮
+            document.querySelector('button:contains("开始部署")').addEventListener('click', () => {
+                if (!validateDeploymentConfig()) {
+                    showAlert('配置无效', '请检查部署配置是否完整。');
+                    return;
+                }
+                startDeployment();
+            });
+
+            // 版本管理按钮
+            document.querySelectorAll('.version-item button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const action = e.target.textContent.trim();
+                    const version = e.target.closest('.version-item').querySelector('.text-white').textContent;
+                    handleVersionAction(version, action);
+                });
+            });
+        }
+
+        // 显示警告弹窗
+        function showAlert(title, message, actionCallback = null) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').style.display = 'flex';
+            
+            const actionButton = document.getElementById('alertAction');
+            if (actionCallback) {
+                actionButton.style.display = 'block';
+                actionButton.onclick = actionCallback;
+            } else {
+                actionButton.style.display = 'none';
+            }
+        }
+
+        // 关闭警告弹窗
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        // 导航函数
+        function navigateTo(path, params = {}) {
+            const queryString = Object.keys(params)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+            window.location.href = queryString ? `${path}?${queryString}` : path;
+        }
+
+        // 导航到实时监控页面
+        function navigateToMonitoring() {
+            const criticalInstances = deploymentData.instances.filter(i => i.status === 'critical');
+            if (criticalInstances.length > 0) {
+                showAlert(
+                    '部署警告',
+                    `${criticalInstances.length} 个实例状态异常，建议先处理异常。是否继续进入监控？`,
+                    () => navigateTo('./real-time-monitoring.html', {
+                        deploymentId: deploymentData.deploymentId,
+                        instances: criticalInstances.map(i => i.id).join(',')
+                    })
+                );
+            } else {
+                navigateTo('./real-time-monitoring.html', {
+                    deploymentId: deploymentData.deploymentId
+                });
+            }
+        }
+
+        // 导航到应急处理页面
+        function navigateToEmergency() {
+            const errors = deploymentData.errors;
+            if (errors.some(e => e.severity === 'critical')) {
+                showAlert(
+                    '严重错误',
+                    '检测到严重部署错误，建议立即处理。是否进入应急处理？',
+                    () => navigateTo('./emergency.html', {
+                        deploymentId: deploymentData.deploymentId,
+                        errors: errors.map(e => e.id).join(',')
+                    })
+                );
+            } else {
+                navigateTo('./emergency.html', {
+                    deploymentId: deploymentData.deploymentId
+                });
+            }
+        }
+
+        // 检查部署是否完成
+        function isDeploymentComplete() {
+            return deploymentData.status === 'completed';
+        }
+
+        // 检查是否有部署问题
+        function hasDeploymentIssues() {
+            return deploymentData.errors.length > 0 || 
+                   deploymentData.instances.some(i => i.status === 'failed');
+        }
+
+        // 验证部署配置
+        function validateDeploymentConfig() {
+            // 实现配置验证逻辑
+            return true;
+        }
+
+        // 开始部署
+        function startDeployment() {
+            // 获取URL参数
+            const urlParams = new URLSearchParams(window.location.search);
+            deploymentData.modelId = urlParams.get('modelId');
+            deploymentData.deploymentId = Date.now().toString();
+
+            // 更新部署状态
+            updateDeploymentStatus('in_progress');
+
+            // 模拟部署过程
+            simulateDeployment();
+        }
+
+        // 监控部署
+        function monitorDeployment() {
+            setInterval(() => {
+                updateResourceUsage();
+                checkInstanceStatus();
+                updateDeploymentLogs();
+            }, 1000);
+        }
+
+        // 模拟部署过程
+        function simulateDeployment() {
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 10;
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    deploymentData.status = 'completed';
+                    updateDeploymentStatus('completed');
+                    showDeploymentResult();
+                } else {
+                    updateDeploymentProgress(progress);
+                }
+            }, 2000);
+        }
+
+        // 更新资源使用情况
+        function updateResourceUsage() {
+            deploymentData.resources = {
+                cpu: Math.floor(Math.random() * 100),
+                memory: Math.floor(Math.random() * 100),
+                gpu: Math.floor(Math.random() * 100)
+            };
+            updateResourceMeters();
+        }
+
+        // 检查实例状态
+        function checkInstanceStatus() {
+            deploymentData.instances = Array.from({ length: 3 }, (_, i) => ({
+                id: `instance-${String(i + 1).padStart(3, '0')}`,
+                status: Math.random() > 0.8 ? 'failed' : 'running',
+                uptime: Math.floor(Math.random() * 100),
+                error: null
+            }));
+            updateInstanceStatus();
+        }
+
+        // 更新部署日志
+        function updateDeploymentLogs() {
+            const logTypes = ['info', 'warning', 'error'];
+            const newLog = {
+                type: logTypes[Math.floor(Math.random() * logTypes.length)],
+                message: `部署操作 ${Date.now()}`,
+                timestamp: new Date()
+            };
+            deploymentData.logs.push(newLog);
+            updateLogDisplay();
+        }
+
+        // 显示部署结果
+        function showDeploymentResult() {
+            if (hasDeploymentIssues()) {
+                showAlert(
+                    '部署完成',
+                    '部署过程中出现问题，建议进行检查。是否进入应急处理？',
+                    () => navigateToEmergency()
+                );
+            } else {
+                showAlert(
+                    '部署成功',
+                    '模型已成功部署，是否进入监控页面？',
+                    () => navigateToMonitoring()
+                );
+            }
+        }
+
+        // 处理版本操作
+        function handleVersionAction(version, action) {
+            if (action === '回滚') {
+                showAlert(
+                    '版本回滚',
+                    `确定要回滚到版本 ${version} 吗？`,
+                    () => {
+                        // 实现回滚逻辑
+                        showAlert('回滚成功', `已成功回滚到版本 ${version}`);
+                    }
+                );
+            } else if (action === '部署') {
+                showAlert(
+                    '版本部署',
+                    `确定要部署版本 ${version} 吗？`,
+                    () => {
+                        // 实现部署逻辑
+                        startDeployment();
+                    }
+                );
+            }
+        }
+
+        // 更新部署状态
+        function updateDeploymentStatus(status) {
+            const statusElement = document.getElementById('deploymentStatus');
+            if (status === 'completed') {
+                statusElement.innerHTML = '<span class="mr-2">●</span>部署完成';
+                statusElement.classList.remove('text-yellow-400');
+                statusElement.classList.add('text-green-400');
+            } else {
+                statusElement.innerHTML = '<span class="mr-2">●</span>部署进行中';
+                statusElement.classList.remove('text-green-400');
+                statusElement.classList.add('text-yellow-400');
+            }
+        }
+
+        // 更新部署进度
+        function updateDeploymentProgress(progress) {
+            // 实现进度更新逻辑
+        }
+
+        // 更新资源指示器
+        function updateResourceMeters() {
+            // 实现资源指示器更新逻辑
+        }
+
+        // 更新实例状态
+        function updateInstanceStatus() {
+            // 实现实例状态更新逻辑
+        }
+
+        // 更新日志显示
+        function updateLogDisplay() {
+            // 实现日志显示更新逻辑
+        }
+    </script>
+</body>
+</html> 

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体强化学习的无人机协同系统 - 训练环境配置</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .config-card {
+            @apply bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/10 hover:bg-white/15 transition-all duration-300;
+        }
+        .parameter-input {
+            @apply bg-slate-800/50 border border-blue-500/30 rounded-lg px-4 py-2 text-white w-full focus:outline-none focus:border-blue-500;
+        }
+        .map-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 2px;
+        }
+        .map-cell {
+            @apply bg-slate-800/50 aspect-square rounded-sm border border-slate-700/50 hover:bg-blue-500/30 cursor-pointer transition-colors;
+        }
+        .map-cell.obstacle {
+            @apply bg-red-500/50 hover:bg-red-600/50;
+        }
+        .map-cell.start {
+            @apply bg-green-500/50 hover:bg-green-600/50;
+        }
+        .map-cell.goal {
+            @apply bg-yellow-500/50 hover:bg-yellow-600/50;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <div class="container mx-auto px-4 py-8">
+        <!-- 顶部标题 -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-white">训练环境配置</h1>
+            <p class="text-blue-200">场景设置 · 参数配置 · 奖励函数</p>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：场景设置和地图编辑器 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 训练场景设置 -->
+                <div class="config-card">
+                    <h2 class="text-xl font-bold text-white mb-6">训练场景设置</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">场景类型</label>
+                            <select class="parameter-input">
+                                <option>搜索与救援</option>
+                                <option>区域巡逻</option>
+                                <option>目标追踪</option>
+                                <option>协同运输</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">无人机数量</label>
+                            <input type="number" value="5" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">训练回合数</label>
+                            <input type="number" value="1000" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">时间步长</label>
+                            <input type="number" value="0.1" class="parameter-input">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 地图编辑器 -->
+                <div class="config-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">训练地图编辑器</h2>
+                        <div class="flex space-x-2">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-green-500/50 rounded-sm mr-2"></div>
+                                <span class="text-green-300 text-sm">起点</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-yellow-500/50 rounded-sm mr-2"></div>
+                                <span class="text-yellow-300 text-sm">目标</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-red-500/50 rounded-sm mr-2"></div>
+                                <span class="text-red-300 text-sm">障碍物</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800/30 p-6 rounded-xl">
+                        <div class="map-grid">
+                            <!-- 10x10 网格 -->
+                            <div class="map-cell start"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell goal"></div>
+                            
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell obstacle"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                            <div class="map-cell"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：参数配置和奖励函数设置 -->
+            <div class="space-y-6">
+                <!-- 环境参数配置 -->
+                <div class="config-card">
+                    <h2 class="text-xl font-bold text-white mb-6">环境参数配置</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">环境大小</label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <input type="number" value="100" placeholder="宽度" class="parameter-input">
+                                <input type="number" value="100" placeholder="高度" class="parameter-input">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">障碍物密度</label>
+                            <input type="range" min="0" max="100" value="30" class="w-full bg-blue-500/30 rounded-lg appearance-none h-2">
+                            <div class="flex justify-between text-sm text-gray-400 mt-1">
+                                <span>低密度</span>
+                                <span>高密度</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">环境动态性</label>
+                            <select class="parameter-input">
+                                <option>静态环境</option>
+                                <option>低动态性</option>
+                                <option>中等动态性</option>
+                                <option>高动态性</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 奖励函数设计 -->
+                <div class="config-card">
+                    <h2 class="text-xl font-bold text-white mb-6">奖励函数设计</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">到达目标奖励</label>
+                            <input type="number" value="100" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">碰撞惩罚</label>
+                            <input type="number" value="-50" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">时间步惩罚</label>
+                            <input type="number" value="-1" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">协作奖励</label>
+                            <input type="number" value="20" class="parameter-input">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 约束条件设置 -->
+                <div class="config-card">
+                    <h2 class="text-xl font-bold text-white mb-6">约束条件设置</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">最大速度限制</label>
+                            <input type="number" value="10" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">最小安全距离</label>
+                            <input type="number" value="2" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">通信范围</label>
+                            <input type="number" value="20" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">能量消耗限制</label>
+                            <input type="number" value="1000" class="parameter-input">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部操作栏 -->
+        <div class="mt-8 config-card flex justify-between items-center">
+            <div class="flex space-x-4">
+                <button class="px-6 py-2 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                    保存配置
+                </button>
+                <button class="px-6 py-2 bg-green-600/30 text-green-300 rounded-lg hover:bg-green-600/40 border border-green-500/30">
+                    开始训练
+                </button>
+                <button class="px-6 py-2 bg-yellow-600/30 text-yellow-300 rounded-lg hover:bg-yellow-600/40 border border-yellow-500/30">
+                    导入配置
+                </button>
+            </div>
+            <div class="text-sm text-gray-400">
+                上次训练：2024-03-06 09:30
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体强化学习的无人机协同系统 - 无人机管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.staticfile.net/Chart.js/3.9.1/chart.js"></script>
+    <script src="https://fastly.jsdelivr.net/npm/moment"></script>
+    <style>
+        .drone-card {
+            @apply bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/10 hover:bg-white/15 transition-all duration-300;
+        }
+        .parameter-input {
+            @apply bg-slate-800/50 border border-blue-500/30 rounded-lg px-4 py-2 text-white w-full focus:outline-none focus:border-blue-500;
+        }
+        .status-indicator {
+            @apply w-3 h-3 rounded-full;
+        }
+        .tab-active {
+            @apply bg-blue-600/30 text-blue-300;
+        }
+        .tab-inactive {
+            @apply bg-slate-800/30 text-gray-400 hover:bg-slate-800/50;
+        }
+        .chart-container {
+            @apply bg-slate-800/30 rounded-xl p-4 border border-white/10;
+            height: 200px;
+        }
+        .drone-list {
+            max-height: 600px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(59, 130, 246, 0.5) rgba(30, 41, 59, 0.5);
+        }
+        .drone-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .drone-list::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.5);
+        }
+        .drone-list::-webkit-scrollbar-thumb {
+            background-color: rgba(59, 130, 246, 0.5);
+            border-radius: 3px;
+        }
+        .notification {
+            @apply fixed top-4 right-4 bg-green-500/90 text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-500 opacity-0;
+        }
+        .notification.show {
+            @apply opacity-100;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <!-- 警告弹窗 -->
+    <div id="alertModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold text-white mb-4" id="alertTitle">警告</h3>
+            <p class="text-gray-300 mb-6" id="alertMessage">警告信息</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeAlert()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                    关闭
+                </button>
+                <button id="alertAction" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification">
+        操作成功
+    </div>
+
+    <!-- 导航栏 -->
+    <nav class="bg-slate-800/50 backdrop-blur-md border-b border-white/10">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold text-white">无人机协同系统</h1>
+                    <div class="flex space-x-4">
+                        <a href="./dashboard.html" class="text-blue-300 hover:text-white transition-colors">
+                            返回仪表盘
+                        </a>
+                        <button id="nav-monitoring" class="text-blue-300 hover:text-white transition-colors">
+                            实时监控
+                        </button>
+                        <button id="nav-mission" class="text-blue-300 hover:text-white transition-colors">
+                            任务规划
+                        </button>
+                        <button id="nav-emergency" class="text-blue-300 hover:text-white transition-colors">
+                            应急处理
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- 顶部标题和搜索栏 -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-white">无人机管理</h1>
+                <p class="text-blue-200">设备监控 · 参数配置 · 分组管理</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="relative">
+                    <input type="text" id="searchDrone" placeholder="搜索无人机..." class="bg-slate-800/50 border border-blue-500/30 rounded-lg px-4 py-2 text-white w-64 focus:outline-none focus:border-blue-500">
+                    <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                </div>
+                <select id="droneGroup" class="bg-slate-800/50 border border-blue-500/30 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500">
+                    <option value="all">所有分组</option>
+                    <option value="group1">分组A</option>
+                    <option value="group2">分组B</option>
+                    <option value="group3">分组C</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 状态概览 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="drone-card">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-blue-300 text-sm font-medium">总设备数量</h3>
+                        <p class="text-4xl font-bold text-white mt-2" id="totalDrones">30</p>
+                    </div>
+                    <div class="text-blue-400 bg-blue-400/20 px-3 py-1 rounded-full text-sm">
+                        库存充足
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <canvas id="droneStatsChart" class="w-full h-20"></canvas>
+                </div>
+            </div>
+
+            <div class="drone-card">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-blue-300 text-sm font-medium">在线设备</h3>
+                        <p class="text-4xl font-bold text-white mt-2" id="onlineDrones">24</p>
+                    </div>
+                    <div class="text-green-400 bg-green-400/20 px-3 py-1 rounded-full text-sm">
+                        80% 在线
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <canvas id="onlineStatsChart" class="w-full h-20"></canvas>
+                </div>
+            </div>
+
+            <div class="drone-card">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-blue-300 text-sm font-medium">需要维护</h3>
+                        <p class="text-4xl font-bold text-white mt-2" id="maintenanceDrones">3</p>
+                    </div>
+                    <div class="text-yellow-400 bg-yellow-400/20 px-3 py-1 rounded-full text-sm">
+                        需关注
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <canvas id="maintenanceStatsChart" class="w-full h-20"></canvas>
+                </div>
+            </div>
+
+            <div class="drone-card">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-blue-300 text-sm font-medium">固件更新</h3>
+                        <p class="text-4xl font-bold text-white mt-2" id="updateDrones">5</p>
+                    </div>
+                    <div class="text-red-400 bg-red-400/20 px-3 py-1 rounded-full text-sm">
+                        待更新
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <canvas id="updateStatsChart" class="w-full h-20"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：无人机列表和数据图表 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 数据可视化区域 -->
+                <div class="drone-card">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-white">实时监控数据</h2>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 tab-active rounded-lg" onclick="switchChart('battery')">电量分布</button>
+                            <button class="px-3 py-1 tab-inactive rounded-lg" onclick="switchChart('signal')">信号强度</button>
+                            <button class="px-3 py-1 tab-inactive rounded-lg" onclick="switchChart('status')">状态分布</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="mainChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 无人机列表 -->
+                <div class="drone-list space-y-4" id="droneList">
+                    <!-- 动态生成的无人机卡片将在这里显示 -->
+                </div>
+            </div>
+
+            <!-- 右侧：配置和更新 -->
+            <div class="space-y-8">
+                <!-- 参数配置 -->
+                <div class="drone-card">
+                    <h2 class="text-xl font-bold text-white mb-6">参数配置</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">最大飞行高度</label>
+                            <input type="text" value="120m" class="parameter-input" id="maxHeight">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">最大飞行速度</label>
+                            <input type="text" value="15m/s" class="parameter-input" id="maxSpeed">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">返航电量阈值</label>
+                            <input type="text" value="20%" class="parameter-input" id="returnThreshold">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">信号丢失行为</label>
+                            <select class="parameter-input" id="signalLossAction">
+                                <option>自动返航</option>
+                                <option>原地悬停</option>
+                                <option>继续任务</option>
+                            </select>
+                        </div>
+                        <button onclick="saveConfig()" class="w-full bg-blue-600/30 hover:bg-blue-600/40 text-blue-300 py-2 px-4 rounded-lg border border-blue-500/30 transition-colors mt-4">
+                            保存配置
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 固件更新 -->
+                <div class="drone-card">
+                    <h2 class="text-xl font-bold text-white mb-6">固件更新</h2>
+                    <div class="space-y-4">
+                        <div class="bg-blue-900/30 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-white">最新版本：v2.1.0</span>
+                                <span class="text-blue-300 text-sm">2024-03-06</span>
+                            </div>
+                            <p class="text-gray-400 text-sm">
+                                - 优化路径规划算法<br>
+                                - 提升电池管理效率<br>
+                                - 修复通信稳定性问题
+                            </p>
+                        </div>
+                        <button onclick="checkUpdate()" class="w-full bg-blue-600/30 hover:bg-blue-600/40 text-blue-300 py-2 px-4 rounded-lg border border-blue-500/30 transition-colors">
+                            检查更新
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 实时日志 -->
+                <div class="drone-card">
+                    <h2 class="text-xl font-bold text-white mb-4">系统日志</h2>
+                    <div class="bg-slate-800/50 rounded-lg p-4 h-40 overflow-y-auto text-sm">
+                        <div id="systemLogs" class="space-y-2">
+                            <!-- 日志内容将动态添加 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部状态栏 -->
+        <div class="mt-8 drone-card flex justify-between items-center">
+            <div class="flex space-x-8 text-sm">
+                <div>
+                    <span class="text-gray-400">在线设备：</span>
+                    <span class="text-green-400" id="onlineStatus">24/30</span>
+                </div>
+                <div>
+                    <span class="text-gray-400">系统状态：</span>
+                    <span class="text-green-400" id="systemStatus">正常运行</span>
+                </div>
+                <div>
+                    <span class="text-gray-400">最后同步：</span>
+                    <span class="text-blue-300" id="lastSync">1分钟前</span>
+                </div>
+            </div>
+            <div class="text-sm text-gray-400">
+                系统版本：v2.1.0
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let selectedDroneId = null;
+        const EMERGENCY_THRESHOLD = 20; // 电池电量紧急阈值
+
+        // 页面加载完成后执行
+        window.onload = function() {
+            initializeCharts();
+            renderDroneList();
+            setInterval(updateStatus, 60000);
+            initializeEventListeners();
+            checkDroneStatus();
+        };
+
+        // 初始化事件监听
+        function initializeEventListeners() {
+            // 导航事件
+            document.getElementById('nav-monitoring').addEventListener('click', () => {
+                if (!selectedDroneId) {
+                    showAlert('请先选择无人机', '请选择要监控的无人机后再进行操作。');
+                    return;
+                }
+                navigateTo('./monitoring.html', { droneId: selectedDroneId });
+            });
+
+            document.getElementById('nav-mission').addEventListener('click', () => {
+                if (!selectedDroneId) {
+                    showAlert('请先选择无人机', '请选择要规划任务的无人机后再进行操作。');
+                    return;
+                }
+                navigateTo('./mission-planning.html', { droneId: selectedDroneId });
+            });
+
+            document.getElementById('nav-emergency').addEventListener('click', () => {
+                navigateTo('./emergency.html');
+            });
+
+            // 搜索和筛选
+            document.getElementById('searchDrone').addEventListener('input', handleSearch);
+            document.getElementById('droneGroup').addEventListener('change', handleGroupFilter);
+        }
+
+        // 显示警告弹窗
+        function showAlert(title, message, actionCallback = null) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').style.display = 'flex';
+            
+            const actionButton = document.getElementById('alertAction');
+            if (actionCallback) {
+                actionButton.style.display = 'block';
+                actionButton.onclick = actionCallback;
+            } else {
+                actionButton.style.display = 'none';
+            }
+        }
+
+        // 关闭警告弹窗
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        // 导航函数
+        function navigateTo(path, params = {}) {
+            const queryString = Object.keys(params)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+            window.location.href = queryString ? `${path}?${queryString}` : path;
+        }
+
+        // 选择无人机
+        function selectDrone(id) {
+            selectedDroneId = id;
+            // 更新UI以显示选中状态
+            document.querySelectorAll('.drone-card').forEach(card => {
+                card.classList.remove('border-blue-500');
+                if (card.dataset.droneId === id) {
+                    card.classList.add('border-blue-500');
+                }
+            });
+            showNotification(`已选择无人机 #${id}`);
+        }
+
+        // 检查无人机状态
+        function checkDroneStatus() {
+            droneData.drones.forEach(drone => {
+                if (drone.battery < EMERGENCY_THRESHOLD) {
+                    showAlert(
+                        '无人机电量警告',
+                        `无人机 #${drone.id} 电量低于 ${EMERGENCY_THRESHOLD}%，建议立即处理。`,
+                        () => navigateTo('./emergency.html', { droneId: drone.id })
+                    );
+                }
+            });
+        }
+
+        // 控制无人机
+        function controlDrone(id) {
+            selectDrone(id);
+            showAlert(
+                '无人机控制',
+                `是否进入无人机 #${id} 的实时监控页面？`,
+                () => navigateTo('./monitoring.html', { droneId: id })
+            );
+        }
+
+        // 配置无人机
+        function configureDrone(id) {
+            selectDrone(id);
+            showAlert(
+                '无人机配置',
+                `是否为无人机 #${id} 规划新任务？`,
+                () => navigateTo('./mission-planning.html', { droneId: id })
+            );
+        }
+
+        // 渲染无人机列表
+        function renderDroneList() {
+            const container = document.getElementById('droneList');
+            container.innerHTML = droneData.drones.map(drone => `
+                <div class="drone-card" data-drone-id="${drone.id}" onclick="selectDrone('${drone.id}')">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center">
+                            <span class="text-xl font-bold text-white">无人机 #${drone.id}</span>
+                            <span class="ml-3 ${drone.status === '在线' ? 'text-green-400' : 'text-red-400'}">● ${drone.status}</span>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40" 
+                                    onclick="event.stopPropagation(); configureDrone('${drone.id}')">
+                                配置
+                            </button>
+                            <button class="px-3 py-1 bg-green-600/30 text-green-300 rounded-lg hover:bg-green-600/40"
+                                    onclick="event.stopPropagation(); controlDrone('${drone.id}')">
+                                监控
+                            </button>
+                            ${drone.battery < EMERGENCY_THRESHOLD ? `
+                            <button class="px-3 py-1 bg-red-600/30 text-red-300 rounded-lg hover:bg-red-600/40"
+                                    onclick="event.stopPropagation(); navigateTo('./emergency.html', { droneId: '${drone.id}' })">
+                                应急处理
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <span class="text-gray-400 text-sm">电池电量</span>
+                            <div class="flex items-center mt-1">
+                                <div class="w-full bg-blue-900/30 rounded-full h-2">
+                                    <div class="bg-${drone.battery > 70 ? 'green' : drone.battery > 30 ? 'yellow' : 'red'}-500 h-2 rounded-full" style="width: ${drone.battery}%"></div>
+                                </div>
+                                <span class="ml-2 text-white">${drone.battery}%</span>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 text-sm">信号强度</span>
+                            <div class="flex items-center mt-1">
+                                <div class="w-full bg-blue-900/30 rounded-full h-2">
+                                    <div class="bg-blue-500 h-2 rounded-full" style="width: ${drone.signal}%"></div>
+                                </div>
+                                <span class="ml-2 text-white">${drone.signal}%</span>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 text-sm">固件版本</span>
+                            <p class="text-white">${drone.firmware}</p>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 text-sm">分组</span>
+                            <p class="text-white">${drone.group}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 模拟数据
+        const droneData = {
+            drones: Array.from({ length: 30 }, (_, i) => ({
+                id: String(i + 1).padStart(3, '0'),
+                status: Math.random() > 0.2 ? '在线' : '离线',
+                battery: Math.floor(Math.random() * 100),
+                signal: Math.floor(Math.random() * 100),
+                firmware: 'v2.1.0',
+                group: ['分组A', '分组B', '分组C'][Math.floor(Math.random() * 3)]
+            }))
+        };
+
+        // 初始化图表
+        let mainChart;
+        const chartColors = {
+            blue: 'rgba(59, 130, 246, 0.5)',
+            green: 'rgba(34, 197, 94, 0.5)',
+            yellow: 'rgba(234, 179, 8, 0.5)',
+            red: 'rgba(239, 68, 68, 0.5)'
+        };
+
+        function initializeCharts() {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            mainChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 10}, (_, i) => moment().subtract(9-i, 'minutes').format('HH:mm')),
+                    datasets: [{
+                        label: '电池电量分布',
+                        data: Array.from({length: 10}, () => Math.floor(Math.random() * 100)),
+                        borderColor: chartColors.blue,
+                        backgroundColor: chartColors.blue,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: {
+                                color: 'rgba(255, 255, 255, 0.7)'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.7)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.7)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 切换图表显示
+        function switchChart(type) {
+            const buttons = document.querySelectorAll('.tab-active, .tab-inactive');
+            buttons.forEach(btn => {
+                btn.classList.remove('tab-active', 'tab-inactive');
+                btn.classList.add(btn.textContent.includes(type) ? 'tab-active' : 'tab-inactive');
+            });
+
+            // 更新图表数据
+            const newData = {
+                battery: {
+                    label: '电池电量分布',
+                    data: Array.from({length: 10}, () => Math.floor(Math.random() * 100))
+                },
+                signal: {
+                    label: '信号强度分布',
+                    data: Array.from({length: 10}, () => Math.floor(Math.random() * 100))
+                },
+                status: {
+                    label: '状态分布',
+                    data: Array.from({length: 10}, () => Math.floor(Math.random() * 30))
+                }
+            }[type];
+
+            mainChart.data.datasets[0].label = newData.label;
+            mainChart.data.datasets[0].data = newData.data;
+            mainChart.update();
+        }
+
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type === 'success' ? 'bg-green-500/90' : 'bg-red-500/90'} show`;
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // 保存配置
+        function saveConfig() {
+            // 模拟保存配置
+            showNotification('配置已保存');
+            addSystemLog('系统配置已更新');
+        }
+
+        // 检查更新
+        function checkUpdate() {
+            showNotification('正在检查更新...');
+            setTimeout(() => {
+                showNotification('已是最新版本');
+            }, 2000);
+            addSystemLog('执行固件更新检查');
+        }
+
+        // 添加系统日志
+        function addSystemLog(message) {
+            const logs = document.getElementById('systemLogs');
+            const time = moment().format('HH:mm:ss');
+            const log = document.createElement('div');
+            log.className = 'text-gray-300';
+            log.innerHTML = `<span class="text-blue-300">[${time}]</span> ${message}`;
+            logs.insertBefore(log, logs.firstChild);
+        }
+
+        // 更新实时状态
+        function updateStatus() {
+            document.getElementById('lastSync').textContent = '刚刚';
+            const time = moment().format('HH:mm:ss');
+            addSystemLog(`系统状态更新完成`);
+        }
+
+        // 搜索功能
+        function handleSearch(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const filteredDrones = droneData.drones.filter(drone => 
+                drone.id.toLowerCase().includes(searchTerm) ||
+                drone.group.toLowerCase().includes(searchTerm)
+            );
+            droneData.drones = filteredDrones;
+            renderDroneList();
+        }
+
+        // 分组筛选
+        function handleGroupFilter(e) {
+            const selectedGroup = e.target.value;
+            if (selectedGroup === 'all') {
+                droneData.drones = Array.from({ length: 30 }, (_, i) => ({
+                    id: String(i + 1).padStart(3, '0'),
+                    status: Math.random() > 0.2 ? '在线' : '离线',
+                    battery: Math.floor(Math.random() * 100),
+                    signal: Math.floor(Math.random() * 100),
+                    firmware: 'v2.1.0',
+                    group: ['分组A', '分组B', '分组C'][Math.floor(Math.random() * 3)]
+                }));
+            } else {
+                droneData.drones = droneData.drones.filter(drone => 
+                    drone.group === selectedGroup
+                );
+            }
+            renderDroneList();
+        }
+    </script>
+</body>
+</html> 

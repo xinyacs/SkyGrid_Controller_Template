@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体强化学习的无人机协同系统 - 算法开发</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .algo-card {
+            @apply bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/10 hover:bg-white/15 transition-all duration-300;
+        }
+        .parameter-input {
+            @apply bg-slate-800/50 border border-blue-500/30 rounded-lg px-4 py-2 text-white w-full focus:outline-none focus:border-blue-500;
+        }
+        .code-editor {
+            @apply font-mono text-sm bg-slate-900/70 rounded-xl p-6 border border-slate-700/50;
+        }
+        .code-line {
+            @apply text-gray-300;
+        }
+        .code-comment {
+            @apply text-blue-400;
+        }
+        .code-keyword {
+            @apply text-purple-400;
+        }
+        .code-string {
+            @apply text-green-400;
+        }
+        .version-tag {
+            @apply px-2 py-1 rounded-full text-xs font-medium;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <!-- 警告弹窗 -->
+    <div id="alertModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold text-white mb-4" id="alertTitle">警告</h3>
+            <p class="text-gray-300 mb-6" id="alertMessage">警告信息</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeAlert()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                    取消
+                </button>
+                <button id="alertAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导航栏 -->
+    <nav class="bg-slate-800/50 backdrop-blur-md border-b border-white/10">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold text-white">无人机协同系统</h1>
+                    <div class="flex space-x-4">
+                        <a href="./dashboard.html" class="text-blue-300 hover:text-white transition-colors">
+                            返回仪表盘
+                        </a>
+                        <button id="nav-training" class="text-blue-300 hover:text-white transition-colors">
+                            训练任务
+                        </button>
+                        <button id="nav-evaluation" class="text-blue-300 hover:text-white transition-colors">
+                            模型评估
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="saveStatus" class="text-gray-400 text-sm"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- 顶部标题 -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-white">算法开发</h1>
+            <p class="text-blue-200">算法选择 · 网络设计 · 参数配置</p>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：算法选择和网络结构 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 算法选择 -->
+                <div class="algo-card">
+                    <h2 class="text-xl font-bold text-white mb-6">强化学习算法选择</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">主算法</label>
+                            <select class="parameter-input">
+                                <option>DDPG (Deep Deterministic Policy Gradient)</option>
+                                <option>PPO (Proximal Policy Optimization)</option>
+                                <option>SAC (Soft Actor-Critic)</option>
+                                <option>TD3 (Twin Delayed DDPG)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">多智能体架构</label>
+                            <select class="parameter-input">
+                                <option>MADDPG (Multi-Agent DDPG)</option>
+                                <option>QMIX</option>
+                                <option>MAPPO</option>
+                                <option>MATD3</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">经验回放策略</label>
+                            <select class="parameter-input">
+                                <option>优先级经验回放</option>
+                                <option>普通经验回放</option>
+                                <option>分层经验回放</option>
+                                <option>情景经验回放</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">探索策略</label>
+                            <select class="parameter-input">
+                                <option>ε-贪心策略</option>
+                                <option>高斯噪声</option>
+                                <option>参数噪声</option>
+                                <option>熵正则化</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 神经网络结构 -->
+                <div class="algo-card">
+                    <h2 class="text-xl font-bold text-white mb-6">神经网络结构设计</h2>
+                    <div class="space-y-6">
+                        <!-- Actor网络 -->
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">Actor网络结构</label>
+                            <div class="grid grid-cols-4 gap-4">
+                                <input type="number" value="256" placeholder="第1层" class="parameter-input">
+                                <input type="number" value="128" placeholder="第2层" class="parameter-input">
+                                <input type="number" value="64" placeholder="第3层" class="parameter-input">
+                                <select class="parameter-input">
+                                    <option>ReLU</option>
+                                    <option>Tanh</option>
+                                    <option>LeakyReLU</option>
+                                </select>
+                            </div>
+                        </div>
+                        <!-- Critic网络 -->
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">Critic网络结构</label>
+                            <div class="grid grid-cols-4 gap-4">
+                                <input type="number" value="256" placeholder="第1层" class="parameter-input">
+                                <input type="number" value="128" placeholder="第2层" class="parameter-input">
+                                <input type="number" value="64" placeholder="第3层" class="parameter-input">
+                                <select class="parameter-input">
+                                    <option>ReLU</option>
+                                    <option>Tanh</option>
+                                    <option>LeakyReLU</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 算法代码编辑器 -->
+                <div class="algo-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">算法代码编辑器</h2>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40">
+                                保存
+                            </button>
+                            <button class="px-3 py-1 bg-green-600/30 text-green-300 rounded-lg hover:bg-green-600/40">
+                                运行
+                            </button>
+                        </div>
+                    </div>
+                    <div class="code-editor">
+                        <div class="code-line"><span class="code-keyword">class</span> <span class="code-string">MADDPG</span>:</div>
+                        <div class="code-line ml-4"><span class="code-keyword">def</span> <span class="code-string">__init__</span>(self, state_dim, action_dim):</div>
+                        <div class="code-line ml-8">self.actor = ActorNetwork(state_dim, action_dim)</div>
+                        <div class="code-line ml-8">self.critic = CriticNetwork(state_dim, action_dim)</div>
+                        <div class="code-line ml-8"><span class="code-comment"># 初始化网络参数</span></div>
+                        <div class="code-line ml-8">self.memory = ReplayBuffer(max_size=1000000)</div>
+                        <div class="code-line"> </div>
+                        <div class="code-line ml-4"><span class="code-keyword">def</span> <span class="code-string">train</span>(self, batch):</div>
+                        <div class="code-line ml-8"><span class="code-comment"># 从经验回放中采样</span></div>
+                        <div class="code-line ml-8">states, actions, rewards = self.memory.sample(batch_size)</div>
+                        <div class="code-line ml-8"><span class="code-comment"># 更新Actor和Critic网络</span></div>
+                        <div class="code-line ml-8">critic_loss = self.update_critic(states, actions, rewards)</div>
+                        <div class="code-line ml-8">actor_loss = self.update_actor(states)</div>
+                        <div class="code-line ml-8"><span class="code-keyword">return</span> critic_loss, actor_loss</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：超参数配置和版本控制 -->
+            <div class="space-y-6">
+                <!-- 超参数配置 -->
+                <div class="algo-card">
+                    <h2 class="text-xl font-bold text-white mb-6">超参数配置</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">学习率</label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <span class="text-gray-400 text-xs">Actor</span>
+                                    <input type="number" value="0.001" step="0.0001" class="parameter-input">
+                                </div>
+                                <div>
+                                    <span class="text-gray-400 text-xs">Critic</span>
+                                    <input type="number" value="0.002" step="0.0001" class="parameter-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">折扣因子 (γ)</label>
+                            <input type="number" value="0.99" step="0.01" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">批次大小</label>
+                            <input type="number" value="64" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">目标网络更新率 (τ)</label>
+                            <input type="number" value="0.005" step="0.001" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">探索噪声</label>
+                            <input type="number" value="0.1" step="0.01" class="parameter-input">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 版本控制管理 -->
+                <div class="algo-card">
+                    <h2 class="text-xl font-bold text-white mb-6">版本控制管理</h2>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
+                            <div>
+                                <div class="text-white font-medium">v2.1.0</div>
+                                <div class="text-sm text-gray-400">优化MADDPG架构</div>
+                            </div>
+                            <span class="version-tag bg-green-500/20 text-green-400">最新版本</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
+                            <div>
+                                <div class="text-white font-medium">v2.0.1</div>
+                                <div class="text-sm text-gray-400">修复梯度更新bug</div>
+                            </div>
+                            <span class="version-tag bg-blue-500/20 text-blue-400">稳定版本</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
+                            <div>
+                                <div class="text-white font-medium">v2.0.0</div>
+                                <div class="text-sm text-gray-400">新增TD3算法支持</div>
+                            </div>
+                            <span class="version-tag bg-gray-500/20 text-gray-400">历史版本</span>
+                        </div>
+                    </div>
+                    <button class="w-full mt-4 px-4 py-2 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                        创建新版本
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部状态栏 -->
+        <div class="mt-8 algo-card flex justify-between items-center">
+            <div class="flex space-x-8 text-sm">
+                <div>
+                    <span class="text-gray-400">当前算法：</span>
+                    <span class="text-blue-300">MADDPG v2.1.0</span>
+                </div>
+                <div>
+                    <span class="text-gray-400">训练状态：</span>
+                    <span class="text-green-400">就绪</span>
+                </div>
+                <div>
+                    <span class="text-gray-400">最后修改：</span>
+                    <span class="text-blue-300">10分钟前</span>
+                </div>
+            </div>
+            <div class="flex space-x-4">
+                <button class="px-4 py-2 bg-purple-600/30 text-purple-300 rounded-lg hover:bg-purple-600/40 border border-purple-500/30">
+                    导出算法
+                </button>
+                <button class="px-4 py-2 bg-green-600/30 text-green-300 rounded-lg hover:bg-green-600/40 border border-green-500/30">
+                    开始训练
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentAlgorithm = null;
+        let isAlgorithmModified = false;
+        let lastSaveTime = null;
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            loadAlgorithmState();
+            setupAutoSave();
+        });
+
+        // 初始化事件监听
+        function initializeEventListeners() {
+            // 导航事件
+            document.getElementById('nav-training').addEventListener('click', () => {
+                if (!validateAlgorithm()) {
+                    showAlert('算法验证失败', '请确保算法代码完整且无错误后再进行训练。');
+                    return;
+                }
+                if (isAlgorithmModified) {
+                    showAlert(
+                        '未保存的更改',
+                        '当前有未保存的更改，是否保存后继续？',
+                        () => {
+                            saveAlgorithm(() => navigateTo('./training-task.html', { algorithmId: currentAlgorithm.id }));
+                        }
+                    );
+                } else {
+                    navigateTo('./training-task.html', { algorithmId: currentAlgorithm.id });
+                }
+            });
+
+            document.getElementById('nav-evaluation').addEventListener('click', () => {
+                if (!validateAlgorithm()) {
+                    showAlert('算法验证失败', '请确保算法代码完整且无错误后再进行评估。');
+                    return;
+                }
+                navigateTo('./model-evaluation.html', { algorithmId: currentAlgorithm.id });
+            });
+
+            // 代码编辑器事件
+            const codeEditor = document.querySelector('.code-editor');
+            codeEditor.addEventListener('input', () => {
+                isAlgorithmModified = true;
+                updateSaveStatus('未保存的更改');
+            });
+
+            // 保存按钮
+            document.querySelector('button:contains("保存")').addEventListener('click', () => {
+                saveAlgorithm();
+            });
+
+            // 运行按钮
+            document.querySelector('button:contains("运行")').addEventListener('click', () => {
+                runAlgorithm();
+            });
+
+            // 网络结构更改事件
+            document.querySelectorAll('.parameter-input').forEach(input => {
+                input.addEventListener('change', () => {
+                    isAlgorithmModified = true;
+                    updateSaveStatus('未保存的更改');
+                });
+            });
+
+            // 创建新版本按钮
+            document.querySelector('button:contains("创建新版本")').addEventListener('click', createNewVersion);
+        }
+
+        // 显示警告弹窗
+        function showAlert(title, message, actionCallback = null) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').style.display = 'flex';
+            
+            const actionButton = document.getElementById('alertAction');
+            if (actionCallback) {
+                actionButton.style.display = 'block';
+                actionButton.onclick = actionCallback;
+            } else {
+                actionButton.style.display = 'none';
+            }
+        }
+
+        // 关闭警告弹窗
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        // 导航函数
+        function navigateTo(path, params = {}) {
+            const queryString = Object.keys(params)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+            window.location.href = queryString ? `${path}?${queryString}` : path;
+        }
+
+        // 加载算法状态
+        function loadAlgorithmState() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const algorithmId = urlParams.get('algorithmId');
+            
+            if (algorithmId) {
+                // 模拟加载算法数据
+                currentAlgorithm = {
+                    id: algorithmId,
+                    name: 'MADDPG',
+                    version: 'v2.1.0',
+                    lastModified: new Date()
+                };
+                updateSaveStatus('所有更改已保存');
+            }
+        }
+
+        // 设置自动保存
+        function setupAutoSave() {
+            setInterval(() => {
+                if (isAlgorithmModified) {
+                    saveAlgorithm();
+                }
+            }, 60000); // 每分钟自动保存
+        }
+
+        // 更新保存状态
+        function updateSaveStatus(status) {
+            const saveStatus = document.getElementById('saveStatus');
+            saveStatus.textContent = status;
+            if (status === '未保存的更改') {
+                saveStatus.classList.add('text-yellow-400');
+                saveStatus.classList.remove('text-green-400');
+            } else {
+                saveStatus.classList.add('text-green-400');
+                saveStatus.classList.remove('text-yellow-400');
+            }
+        }
+
+        // 验证算法
+        function validateAlgorithm() {
+            // 模拟算法验证
+            const code = document.querySelector('.code-editor').textContent;
+            return code.includes('class MADDPG') && code.includes('def train');
+        }
+
+        // 保存算法
+        function saveAlgorithm(callback = null) {
+            // 模拟保存过程
+            setTimeout(() => {
+                isAlgorithmModified = false;
+                lastSaveTime = new Date();
+                updateSaveStatus(`最后保存于 ${lastSaveTime.toLocaleTimeString()}`);
+                if (callback) callback();
+            }, 500);
+        }
+
+        // 运行算法
+        function runAlgorithm() {
+            if (!validateAlgorithm()) {
+                showAlert('验证失败', '请确保算法代码完整且无错误。');
+                return;
+            }
+
+            showAlert(
+                '开始运行',
+                '是否要在测试环境中运行当前算法？',
+                () => {
+                    // 模拟运行过程
+                    showAlert('运行成功', '算法在测试环境中运行成功，是否查看运行结果？',
+                        () => navigateTo('./model-evaluation.html', { algorithmId: currentAlgorithm.id, runId: Date.now() })
+                    );
+                }
+            );
+        }
+
+        // 创建新版本
+        function createNewVersion() {
+            if (isAlgorithmModified) {
+                showAlert('未保存的更改', '创建新版本前请先保存当前更改。');
+                return;
+            }
+
+            showAlert(
+                '创建新版本',
+                '确定要基于当前算法创建新版本吗？',
+                () => {
+                    // 模拟创建新版本
+                    const newVersion = {
+                        id: `${currentAlgorithm.id}_${Date.now()}`,
+                        version: 'v2.1.1',
+                        baseVersion: currentAlgorithm.version
+                    };
+                    
+                    showAlert(
+                        '版本创建成功',
+                        `新版本 ${newVersion.version} 已创建，是否切换到新版本？`,
+                        () => {
+                            currentAlgorithm = newVersion;
+                            window.location.reload();
+                        }
+                    );
+                }
+            );
+        }
+    </script>
+</body>
+</html> 

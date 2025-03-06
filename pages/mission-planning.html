@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体强化学习的无人机协同系统 - 任务规划</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .plan-card {
+            @apply bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/10 hover:bg-white/15 transition-all duration-300;
+        }
+        .parameter-input {
+            @apply bg-slate-800/50 border border-blue-500/30 rounded-lg px-4 py-2 text-white w-full focus:outline-none focus:border-blue-500;
+        }
+        .grid-map {
+            display: grid;
+            grid-template-columns: repeat(20, 1fr);
+            gap: 2px;
+            aspect-ratio: 1;
+        }
+        .grid-cell {
+            @apply bg-slate-800/50 aspect-square rounded-sm border border-slate-700/50;
+        }
+        .grid-cell.waypoint {
+            @apply bg-blue-500/50 border-blue-400;
+        }
+        .grid-cell.target {
+            @apply bg-yellow-500/50 border-yellow-400;
+        }
+        .grid-cell.restricted {
+            @apply bg-red-500/50 border-red-400;
+        }
+        .path-line {
+            @apply absolute border-2 border-dashed border-blue-400/50;
+        }
+        .drone-group {
+            @apply flex items-center space-x-2 p-2 rounded-lg bg-slate-800/50;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <div class="container mx-auto px-4 py-8">
+        <!-- 顶部标题 -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-white">任务规划</h1>
+            <p class="text-blue-200">目标设定 · 路径规划 · 策略配置</p>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：任务目标和路径规划 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 任务目标设定 -->
+                <div class="plan-card">
+                    <h2 class="text-xl font-bold text-white mb-6">任务目标设定</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">任务类型</label>
+                            <select class="parameter-input">
+                                <option>区域巡逻任务</option>
+                                <option>目标追踪任务</option>
+                                <option>搜索救援任务</option>
+                                <option>物资运输任务</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">优先级</label>
+                            <select class="parameter-input">
+                                <option>高优先级</option>
+                                <option>中优先级</option>
+                                <option>低优先级</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">目标区域</label>
+                            <input type="text" value="A1, B2, C3" class="parameter-input">
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">完成时限</label>
+                            <input type="text" value="2小时" class="parameter-input">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 路径规划地图 -->
+                <div class="plan-card">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">路径规划</h2>
+                        <div class="flex space-x-4">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-blue-500/50 rounded-sm mr-2"></div>
+                                <span class="text-blue-300 text-sm">航点</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-yellow-500/50 rounded-sm mr-2"></div>
+                                <span class="text-yellow-300 text-sm">目标</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-red-500/50 rounded-sm mr-2"></div>
+                                <span class="text-red-300 text-sm">禁飞区</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800/30 p-6 rounded-xl">
+                        <div class="grid-map">
+                            <!-- 路径规划网格示例 -->
+                            <div class="grid-cell waypoint"></div>
+                            <div class="grid-cell"></div>
+                            <div class="grid-cell restricted"></div>
+                            <!-- 其他网格单元格 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：策略配置和约束条件 -->
+            <div class="space-y-6">
+                <!-- 协同策略配置 -->
+                <div class="plan-card">
+                    <h2 class="text-xl font-bold text-white mb-6">协同策略配置</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">编队形状</label>
+                            <select class="parameter-input">
+                                <option>三角形编队</option>
+                                <option>矩形编队</option>
+                                <option>线性编队</option>
+                                <option>自适应编队</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">协同模式</label>
+                            <select class="parameter-input">
+                                <option>集中式控制</option>
+                                <option>分布式控制</option>
+                                <option>混合式控制</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">通信策略</label>
+                            <select class="parameter-input">
+                                <option>全局通信</option>
+                                <option>邻域通信</option>
+                                <option>动态通信</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 任务分配优化 -->
+                <div class="plan-card">
+                    <h2 class="text-xl font-bold text-white mb-6">任务分配优化</h2>
+                    <div class="space-y-4">
+                        <div class="drone-group">
+                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span class="text-white">无人机 #001</span>
+                            <span class="text-blue-300">→ 区域 A1</span>
+                        </div>
+                        <div class="drone-group">
+                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span class="text-white">无人机 #002</span>
+                            <span class="text-blue-300">→ 区域 B2</span>
+                        </div>
+                        <div class="drone-group">
+                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span class="text-white">无人机 #003</span>
+                            <span class="text-blue-300">→ 区域 C3</span>
+                        </div>
+                        <button class="w-full mt-4 px-4 py-2 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                            优化分配
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 约束条件设置 -->
+                <div class="plan-card">
+                    <h2 class="text-xl font-bold text-white mb-6">约束条件设置</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">最小安全距离</label>
+                            <input type="number" value="5" class="parameter-input">
+                            <span class="text-gray-400 text-sm">米</span>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">最大飞行速度</label>
+                            <input type="number" value="15" class="parameter-input">
+                            <span class="text-gray-400 text-sm">米/秒</span>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">最大通信距离</label>
+                            <input type="number" value="100" class="parameter-input">
+                            <span class="text-gray-400 text-sm">米</span>
+                        </div>
+                        <div>
+                            <label class="block text-blue-300 text-sm mb-2">能量阈值</label>
+                            <input type="number" value="20" class="parameter-input">
+                            <span class="text-gray-400 text-sm">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部操作栏 -->
+        <div class="mt-8 plan-card flex justify-between items-center">
+            <div class="flex space-x-4">
+                <button class="px-6 py-2 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/40 border border-blue-500/30">
+                    保存方案
+                </button>
+                <button class="px-6 py-2 bg-green-600/30 text-green-300 rounded-lg hover:bg-green-600/40 border border-green-500/30">
+                    开始任务
+                </button>
+                <button class="px-6 py-2 bg-yellow-600/30 text-yellow-300 rounded-lg hover:bg-yellow-600/40 border border-yellow-500/30">
+                    方案验证
+                </button>
+            </div>
+            <div class="text-sm text-gray-400">
+                上次修改：2024-03-06 10:30
+            </div>
+        </div>
+    </div>
+
+    <!-- 警告弹窗 -->
+    <div id="alertModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold text-white mb-4" id="alertTitle">警告</h3>
+            <p class="text-gray-300 mb-6" id="alertMessage">警告信息</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeAlert()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                    取消
+                </button>
+                <button id="alertAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导航栏 -->
+    <nav class="bg-slate-800/50 backdrop-blur-md border-b border-white/10">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold text-white">无人机协同系统</h1>
+                    <div class="flex space-x-4">
+                        <button id="nav-monitoring" class="text-blue-300 hover:text-white transition-colors">
+                            实时监控
+                        </button>
+                        <button id="nav-analysis" class="text-blue-300 hover:text-white transition-colors">
+                            数据分析
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="planningStatus" class="text-blue-400">
+                        <span class="mr-2">●</span>规划中
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <script>
+        // 全局变量
+        let planningData = {
+            planId: null,
+            status: 'planning', // planning, validating, completed
+            startTime: null,
+            drones: [],
+            tasks: [],
+            constraints: {},
+            validationResults: null
+        };
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            loadPlanningData();
+        });
+
+        // 初始化事件监听
+        function initializeEventListeners() {
+            // 导航事件
+            document.getElementById('nav-monitoring').addEventListener('click', () => {
+                if (!isPlanningCompleted()) {
+                    showAlert('规划未完成', '请完成任务规划后再进入监控页面。');
+                    return;
+                }
+                navigateToMonitoring();
+            });
+
+            document.getElementById('nav-analysis').addEventListener('click', () => {
+                if (!hasHistoricalData()) {
+                    showAlert('无历史数据', '当前没有可供分析的历史任务数据。');
+                    return;
+                }
+                navigateToAnalysis();
+            });
+
+            // 保存方案按钮
+            document.querySelector('button:contains("保存方案")').addEventListener('click', savePlan);
+
+            // 开始任务按钮
+            document.querySelector('button:contains("开始任务")').addEventListener('click', startMission);
+
+            // 方案验证按钮
+            document.querySelector('button:contains("方案验证")').addEventListener('click', validatePlan);
+
+            // 任务类型选择
+            document.querySelector('select:contains("区域巡逻任务")').addEventListener('change', (e) => {
+                updateTaskType(e.target.value);
+            });
+
+            // 优化分配按钮
+            document.querySelector('button:contains("优化分配")').addEventListener('click', optimizeAllocation);
+        }
+
+        // 显示警告弹窗
+        function showAlert(title, message, actionCallback = null) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').style.display = 'flex';
+            
+            const actionButton = document.getElementById('alertAction');
+            if (actionCallback) {
+                actionButton.style.display = 'block';
+                actionButton.onclick = () => {
+                    actionCallback();
+                    closeAlert();
+                };
+            } else {
+                actionButton.style.display = 'none';
+            }
+        }
+
+        // 关闭警告弹窗
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        // 导航函数
+        function navigateTo(path, params = {}) {
+            const queryString = Object.keys(params)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+            window.location.href = queryString ? `${path}?${queryString}` : path;
+        }
+
+        // 导航到实时监控
+        function navigateToMonitoring() {
+            const validationResults = validatePlanBeforeStart();
+            if (validationResults.hasWarnings) {
+                showAlert(
+                    '规划警告',
+                    '当前规划方案存在潜在风险，是否仍要继续？',
+                    () => navigateTo('./real-time-monitoring.html', {
+                        planId: planningData.planId,
+                        status: planningData.status
+                    })
+                );
+            } else {
+                navigateTo('./real-time-monitoring.html', {
+                    planId: planningData.planId,
+                    status: planningData.status
+                });
+            }
+        }
+
+        // 导航到数据分析
+        function navigateToAnalysis() {
+            navigateTo('./data-analysis.html', {
+                planId: planningData.planId,
+                type: 'historical'
+            });
+        }
+
+        // 检查规划是否完成
+        function isPlanningCompleted() {
+            return planningData.status === 'completed';
+        }
+
+        // 检查是否有历史数据
+        function hasHistoricalData() {
+            // 实现历史数据检查逻辑
+            return true;
+        }
+
+        // 加载规划数据
+        function loadPlanningData() {
+            // 获取URL参数
+            const urlParams = new URLSearchParams(window.location.search);
+            planningData.planId = urlParams.get('planId') || Date.now().toString();
+            planningData.startTime = new Date();
+
+            // 更新规划状态
+            updatePlanningStatus('planning');
+        }
+
+        // 保存规划方案
+        function savePlan() {
+            if (!validatePlanData()) {
+                showAlert('数据不完整', '请填写完整的规划信息。');
+                return;
+            }
+            planningData.status = 'validating';
+            updatePlanningStatus('validating');
+            showAlert('保存成功', '规划方案已成功保存。');
+        }
+
+        // 开始任务
+        function startMission() {
+            const validation = validatePlanBeforeStart();
+            if (!validation.isValid) {
+                showAlert('验证失败', validation.message);
+                return;
+            }
+            planningData.status = 'completed';
+            updatePlanningStatus('completed');
+            showAlert(
+                '任务确认',
+                '是否确认开始执行任务？',
+                () => navigateToMonitoring()
+            );
+        }
+
+        // 验证规划
+        function validatePlan() {
+            const results = performValidation();
+            planningData.validationResults = results;
+            if (results.hasIssues) {
+                showAlert('验证结果', `发现 ${results.issues.length} 个问题，请检查并修正。`);
+            } else {
+                showAlert('验证通过', '规划方案验证通过，可以开始任务。');
+            }
+        }
+
+        // 更新任务类型
+        function updateTaskType(type) {
+            planningData.tasks = [];
+            showAlert('任务类型更新', '任务类型已更新，请重新设置相关参数。');
+        }
+
+        // 优化分配
+        function optimizeAllocation() {
+            const optimization = performOptimization();
+            if (optimization.improved) {
+                showAlert('优化完成', '任务分配已优化，性能提升 ' + optimization.improvement + '%');
+            } else {
+                showAlert('优化结果', '当前分配已是最优方案。');
+            }
+        }
+
+        // 验证规划数据
+        function validatePlanData() {
+            // 实现数据验证逻辑
+            return true;
+        }
+
+        // 执行验证
+        function performValidation() {
+            return {
+                isValid: true,
+                hasIssues: false,
+                issues: [],
+                warnings: []
+            };
+        }
+
+        // 执行优化
+        function performOptimization() {
+            return {
+                improved: true,
+                improvement: 15
+            };
+        }
+
+        // 启动前验证
+        function validatePlanBeforeStart() {
+            return {
+                isValid: true,
+                hasWarnings: false,
+                message: ''
+            };
+        }
+
+        // 更新规划状态
+        function updatePlanningStatus(status) {
+            const statusElement = document.getElementById('planningStatus');
+            switch (status) {
+                case 'validating':
+                    statusElement.innerHTML = '<span class="mr-2">●</span>验证中';
+                    statusElement.classList.remove('text-blue-400');
+                    statusElement.classList.add('text-yellow-400');
+                    break;
+                case 'completed':
+                    statusElement.innerHTML = '<span class="mr-2">●</span>已完成';
+                    statusElement.classList.remove('text-blue-400', 'text-yellow-400');
+                    statusElement.classList.add('text-green-400');
+                    break;
+                default:
+                    statusElement.innerHTML = '<span class="mr-2">●</span>规划中';
+                    statusElement.classList.remove('text-yellow-400', 'text-green-400');
+                    statusElement.classList.add('text-blue-400');
+            }
+        }
+    </script>
+</body>
+</html> 
